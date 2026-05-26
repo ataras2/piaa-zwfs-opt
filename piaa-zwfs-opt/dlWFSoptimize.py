@@ -91,6 +91,20 @@ def imshow_wavefront(
     show="complex",
     ax=None,
 ):
+    """
+    Display a wavefront on a Matplotlib axis.
+
+    Parameters
+    ----------
+    wavefront : dl.Wavefront
+        Wavefront object containing `phasor` and `coordinates` to display.
+    show : {'complex', 'intensity', 'phase'}, optional
+        How to visualise the wavefront. 'complex' shows phase mapped to hue
+        and amplitude to brightness, 'intensity' shows |E|^2, 'phase' shows
+        the wrapped phase. Default is 'complex'.
+    ax : matplotlib.axes.Axes, optional
+        Axis to draw into. If None, uses the current axis from Matplotlib.
+    """
     if ax is None:
         ax = plt.gca()
 
@@ -322,6 +336,12 @@ class BasisGlassLayer(dl.optical_layers.OpticalLayer):
         self.basis = basis
         self.coefficients = coefficients
         self.refractive_index = refractive_index
+    """A glass layer constructed from a linear basis of thickness patterns.
+
+    The layer's optical path difference is the dot-product of `basis` and
+    `coefficients`, scaled by the refractive index. Can be used as a
+    focal-plane or pupil-plane thickness element.
+    """
 
     def eval_basis(self) -> np.ndarray:
         """
@@ -626,6 +646,21 @@ class Magnifier(dl.OpticalLayer):
 
 
 def load_model(pth):
+    """Load the latest core model and associated ASDF optimization file.
+
+    Parameters
+    ----------
+    pth : str
+        Path to a directory containing `core_model_*.model` and
+        `optimization_*.asdf` files. The latest core model is selected by
+        file creation time.
+
+    Returns
+    -------
+    core_model, asdf_pth
+        The deserialised core model object and the path to the matching
+        optimization ASDF file.
+    """
     # find the latest file
     all_files = os.listdir(pth)
     all_asdf_files = [f for f in all_files if f.endswith(".model")]
@@ -645,6 +680,18 @@ def load_model(pth):
 
 
 def aperture_name_to_pupil_diameter(aperture_name: str) -> float:
+    """Map a known aperture name to its physical pupil diameter (m).
+
+    Parameters
+    ----------
+    aperture_name : str
+        Known aperture identifier (e.g. 'magellan', 'elt', 'gmt').
+
+    Returns
+    -------
+    float
+        Pupil diameter in metres.
+    """
     if aperture_name == "magellan" or aperture_name == "magellan_clear":
         return 6.5  # meters
     elif aperture_name == "elt":
@@ -659,9 +706,25 @@ import pcscep
 
 
 def make_aperture(aperture_name, diameter, wf_npixels, aperture_oversample):
-    # these two are equivalent:
-    # hcipy.make_pupil_grid(512, diameter=2.0).x, dlu.pixel_coords(512, 2.0)[0]
-    # so we can use hcipy to make apertures
+    """Create an `dl.TransmissiveLayer` aperture and its high-level HCIPy mask.
+
+    Parameters
+    ----------
+    aperture_name : str
+        Identifier for the aperture ('magellan', 'magellan_clear', 'elt', 'gmt').
+    diameter : float
+        Physical diameter of the simulated pupil (metres).
+    wf_npixels : int
+        Number of wavefront pixels across the simulation.
+    aperture_oversample : int
+        Supersampling factor for aperture evaluation.
+
+    Returns
+    -------
+    dl.TransmissiveLayer, numpy.ndarray
+        A `dl.TransmissiveLayer` containing the sampled transmission array
+        and the raw (flattened) aperture mask returned by HCIPy evaluation.
+    """
     if aperture_name == "magellan":
         pupil_grid = hcipy.make_pupil_grid(wf_npixels, diameter=diameter)
         aperture = hcipy.make_magellan_aperture(normalized=False, with_spiders=True)
@@ -691,7 +754,20 @@ def make_aperture(aperture_name, diameter, wf_npixels, aperture_oversample):
 
 
 def project_onto_basis(instance, basis):
-    """Project aberration onto basis using least squares."""
+    """Project an aberration instance onto a basis with least-squares.
+
+    Parameters
+    ----------
+    instance : array_like
+        Flattenable aberration map to project (shape matching basis pixels).
+    basis : ndarray
+        Basis array of shape (n_terms, ny, nx).
+
+    Returns
+    -------
+    ndarray
+        Coefficients for the basis that best fit `instance` in least-squares.
+    """
     n_terms = basis.shape[0]
 
     A = basis.reshape((n_terms, -1)).T  # shape (npixels^2, n_terms)
@@ -742,6 +818,11 @@ class GlassDot(Aspheres.ParametricRefractiveOptic):
         diameter_scale: float = 1.0,
         thickness_scale: float = 1.0,
     ):
+        """Create a circular glass dot parameterised by diameter and thickness.
+
+        The dot is represented as a softened circle on the provided coordinate
+        grid. Returned thickness maps are in the same units as `thickness`.
+        """
         if isinstance(diameter, (float, int)):
             diameter = np.array([diameter])
         if isinstance(thickness, (float, int)):
@@ -756,6 +837,13 @@ class GlassDot(Aspheres.ParametricRefractiveOptic):
         self.thickness_scale = thickness_scale
 
     def generate_thickness(self):
+        """Generate the thickness map for the glass dot on `coords`.
+
+        Returns
+        -------
+        ndarray
+            2D thickness map matching the `coords` grid.
+        """
         diameter = self.diameter * self.diameter_scale
         thickness = self.thickness * self.thickness_scale
         circle = dlu.soft_circle(
@@ -770,6 +858,26 @@ class GlassDot(Aspheres.ParametricRefractiveOptic):
 
 
 def mag2flux(z_mag, zero_point_flux, pupil_area, exposure_time, bandwidth):
+    """Convert magnitude to photon counts for an exposure.
+
+    Parameters
+    ----------
+    z_mag : float
+        Source magnitude in the chosen zero-point system.
+    zero_point_flux : float
+        Zero-point in photons cm^-2 s^-1 A^-1 (from `zero_points`).
+    pupil_area : float
+        Collecting area (m^2).
+    exposure_time : float
+        Exposure time in seconds.
+    bandwidth : float
+        Wavelength bandwidth in metres.
+
+    Returns
+    -------
+    float
+        Number of photons detected in the exposure (photons).
+    """
     flux_per_m2 = zero_point_flux * 1e4 * 1e10 * 10 ** (-0.4 * z_mag)  # photons/m2/s/m
     source_photons_per_s = flux_per_m2 * pupil_area * bandwidth
 
@@ -777,12 +885,39 @@ def mag2flux(z_mag, zero_point_flux, pupil_area, exposure_time, bandwidth):
 
 
 def flux2mag(flux, zero_point_flux, pupil_area, exposure_time, bandwidth):
+    """Convert detected flux back to magnitude.
+
+    Parameters
+    ----------
+    flux : float
+        Detected photons in the exposure.
+    zero_point_flux : float
+        Zero-point in photons cm^-2 s^-1 A^-1.
+    pupil_area : float
+        Collecting area (m^2).
+    exposure_time : float
+        Exposure time in seconds.
+    bandwidth : float
+        Wavelength bandwidth in metres.
+
+    Returns
+    -------
+    float
+        Computed magnitude.
+    """
     flux_per_m2 = flux / (pupil_area * exposure_time) / bandwidth  # photons/m2/s/m
     z_mag = -2.5 * np.log10(flux_per_m2 / (zero_point_flux * 1e4 * 1e10))
     return z_mag
 
 
 class ModelCore(zdx.base.Base):
+    """Container representing the core forward model and its parameters.
+
+    `ModelCore` wraps a telescope (`dl.Telescope`) and a parameter dictionary
+    used to construct, evaluate and differentiate model outputs (images,
+    Fisher information, losses) with respect to instrument or aberration
+    parameters.
+    """
     params: dict
     tel: dl.Telescope
 
@@ -853,6 +988,18 @@ class ModelCore(zdx.base.Base):
         return self.tel.model()
 
     def compute_J(self, around_params):
+        """Compute Jacobian of the model image with respect to parameters.
+
+        Parameters
+        ----------
+        around_params : dict
+            Mapping of parameter names to values around which to linearise.
+
+        Returns
+        -------
+        array-like
+            Jacobian of the image with respect to the parameters provided.
+        """
         def new_intensity(params_dict, model):
             # update each entry in core_model.params
             for key, value in params_dict.items():
@@ -865,6 +1012,19 @@ class ModelCore(zdx.base.Base):
         return fn(around_params)
 
     def compute_FI(self, abberation_name: str):
+        """Compute the Fisher information matrix for a named aberration set.
+
+        Parameters
+        ----------
+        abberation_name : str
+            Name of the parameter in `params` that contains the aberration
+            coefficients (e.g. 'phase_coefficients').
+
+        Returns
+        -------
+        ndarray
+            Fisher information matrix for the requested aberration coefficients.
+        """
         I = self.img()
         aberration_dict = {abberation_name: self.get(f"params.{abberation_name}")}
         J = self.compute_J(aberration_dict)[abberation_name]
@@ -877,6 +1037,19 @@ class ModelCore(zdx.base.Base):
 
     @staticmethod
     def calculate_loss(FI, flux, n_coefficients, loss_type):
+        """Calculate a scalar loss from a Fisher information matrix.
+
+        Parameters
+        ----------
+        FI : ndarray
+            Fisher information matrix.
+        flux : float
+            Photon flux used for normalisation variants.
+        n_coefficients : int
+            Number of coefficients represented by FI (for normalisations).
+        loss_type : str
+            One of the supported loss identifiers.
+        """
         if loss_type == "cov_trace_normed":
             return np.trace(np.linalg.inv(FI)) * flux / n_coefficients
         elif loss_type == "cov_trace":
@@ -894,12 +1067,25 @@ class ModelCore(zdx.base.Base):
             )
 
     def loss(self, loss_type: str = "neg_FI_trace_normed"):
+        """Compute the scalar loss for the current model parameters.
+
+        Parameters
+        ----------
+        loss_type : str
+            Loss variant to compute (see `calculate_loss`).
+        """
         aberration_coefficients = self.get("params.phase_coefficients")
         FI = self.compute_FI("phase_coefficients")
         flux = self.get("tel.source.flux")
         return self.calculate_loss(FI, flux, len(aberration_coefficients), loss_type)
 
     def FI_normalise(self, FI_matrix, inverse=False):
+        """Normalise or un-normalise a Fisher information matrix.
+
+        This function scales FI matrices by photon flux and wavelength factors
+        used elsewhere in the code to compare different sensors on a common
+        scale.
+        """
         central_wavel = self.tel.wavelengths.mean()
         flux = self.get("tel.source.flux")
 
@@ -911,6 +1097,11 @@ class ModelCore(zdx.base.Base):
             return FI_matrix * norm_factor
 
     def loss_bound_idealwfs(self, loss_type: str = "neg_FI_trace_normed"):
+        """Compute the loss for an ideal wavefront sensor bound.
+
+        Returns the scalar loss assuming an ideal WFS sensitivity for each
+        coefficient (used as a benchmark).
+        """
         # an ideal WFS has FI = 4 on the diagional,
         # an example conversion from FI normalized sensitivty is:
         # FI[3,3]/actual_flux*(central_wavel*1e6/(2*np.pi))**2
@@ -930,15 +1121,39 @@ class ModelCore(zdx.base.Base):
         return self.calculate_loss(FI, flux, len(aberration_coefficients), loss_type)
 
     def optics_to_hcipy(self):
+        """Placeholder: convert internal optics representation to HCIPy objects.
+
+        Not yet implemented.
+        """
         pass
 
     def get_aperture(self):
+        """Return the current pupil transmission array from the telescope.
+
+        Returns
+        -------
+        ndarray
+            Transmission array used as the pupil support.
+        """
         tel = self._update_tel()
         return tel.get("TransmissiveLayer").transmission
 
     def compute_standard_sensitivity(
         self, pupil_diameter, n_freqs=10, freq_start=1, freq_end=8, return_J=False
     ):
+        """Compute standard sensitivity (Fisher or Jacobian) for sinusoidal bases.
+
+        Parameters
+        ----------
+        pupil_diameter : float
+            Physical pupil diameter in metres used to define cycles per meter.
+        n_freqs : int
+            Number of frequency samples.
+        freq_start, freq_end : float
+            Range of cycles-per-pupil values to evaluate.
+        return_J : bool
+            If True, return Jacobians instead of Fisher matrices.
+        """
         model_copy = self.set("tel", self._update_tel())
 
         wfnpix = model_copy.tel.get("optics.wf_npixels")
@@ -984,6 +1199,19 @@ class ModelCore(zdx.base.Base):
             return sin_J, cos_J, freqs
 
     def update_model_basis(self, new_basis):
+        """Replace the current BasisLayer in the telescope with `new_basis`.
+
+        Parameters
+        ----------
+        new_basis : ndarray
+            New basis array (n_terms, ny, nx) to install in the model.
+
+        Returns
+        -------
+        ModelCore
+            A new `ModelCore` instance with the updated telescope and
+            zeroed coefficients.
+        """
         tel = self._update_tel()
 
         new_coeffs = np.zeros(new_basis.shape[0])
@@ -996,6 +1224,12 @@ class ModelCore(zdx.base.Base):
 
 
 def _perturb(X, pytree, parameters, shapes, lengths):
+    """Apply a flat perturbation vector `X` to selected leaf parameters.
+
+    This builds a new pytree where the listed `parameters` are replaced by
+    segments taken from the flat vector `X`, using `shapes` and `lengths` to
+    reconstruct array shapes.
+    """
     n, xs = 0, []
     if isinstance(parameters, str):
         parameters = [parameters]
@@ -1012,6 +1246,11 @@ def _perturb(X, pytree, parameters, shapes, lengths):
 
 
 def hessian(f, x, has_aux=False, batch_size=1):
+    """Compute the full Hessian of scalar function `f` at `x` using JAX.
+
+    This function forms the Hessian by applying `linearize(grad(f))` to the
+    standard basis. `batch_size` can be used to reduce peak RAM usage.
+    """
     # Jit the sub-function here since it is called many times
     if has_aux:
         _, hvp, aux = linearize(grad(f, has_aux=has_aux), x, has_aux=has_aux)
@@ -1043,6 +1282,23 @@ def smart_hessian(
     batch_size=1,
     **fn_kwargs,
 ):
+    """Convenience wrapper to compute a Hessian for selected pytree leaves.
+
+    Parameters
+    ----------
+    pytree : zodiax-style pytree
+        Container providing `.get` and `.add` for parameter leaves.
+    parameters : list[str]
+        Names of leaves to include in the Hessian.
+    fn : callable
+        Function accepting the perturbed pytree and additional args that
+        returns a scalar to differentiate.
+
+    Returns
+    -------
+    ndarray
+        Hessian matrix for the flattened selected parameters.
+    """
     # Build X vec
     pytree = zdx.tree.set_array(pytree, parameters)
 
@@ -1074,6 +1330,10 @@ def optx_minimize(
     loss_type,
     **minimize_kwargs,
 ):
+    """Minimise a `pytree.loss` using `optimistix.minimise` over selected leaves.
+
+    Returns the optimised pytree and the solver result structure.
+    """
     leaves = [pytree.get(p) for p in parameters]
     shapes = [leaf.shape for leaf in leaves]
     lengths = [leaf.size for leaf in leaves]
@@ -1103,6 +1363,11 @@ def optx_minimize_general(
     fn,
     **minimize_kwargs,
 ):
+    """General optimiser wrapper that minimises an arbitrary function `fn`.
+
+    Parameters mirror `optx_minimize` but accept an explicit `fn` which
+    takes a perturbed pytree and returns a scalar loss.
+    """
     leaves = [pytree.get(p) for p in parameters]
     shapes = [leaf.shape for leaf in leaves]
     lengths = [leaf.size for leaf in leaves]
@@ -1127,12 +1392,32 @@ def optx_minimize_general(
 
 # runs a big with optimization and saves the result in an asdf file
 def aperture_area(aperture, wf_npixels, sim_diameter):
+    """Compute the physical area of the aperture transmission > 0.5.
+
+    Parameters
+    ----------
+    aperture : ndarray
+        Transmission array (ny, nx) with values in [0, 1].
+    wf_npixels : int
+        Number of pixels across the simulation.
+    sim_diameter : float
+        Simulation diameter in metres.
+
+    Returns
+    -------
+    float
+        Physical area in square metres where aperture > 0.5.
+    """
     dx = sim_diameter / wf_npixels
     return np.sum(aperture > 0.5) * dx * dx
 
 
 def generate_idealwfs_optics(core_model):
+    """Replace the telescope optics after the `BasisLayer` with an ideal WFS.
 
+    This constructs a minimal telescope that terminates at a `BasisLayer`
+    and appends an `IdealWFS` layer for benchmarking.
+    """
     tel = core_model.get("tel")
 
     # delete every layer after "BasisLayer"
@@ -1229,6 +1514,13 @@ def make_system(
     magnitude=None,
     debug_plots=False,
 ):
+    """Construct a full `ModelCore` for a ZWFS-style system.
+
+    This helper builds optics, detectors, source and initial parameter
+    dictionaries for many experiment variants (PIAA, phase-dot, annular
+    phase masks, Fourier/Zernike bases). Returned `ModelCore` is ready for
+    evaluation and optimisation.
+    """
     central_wavel = wavels[len(wavels) // 2]
     loD = central_wavel / (final_D)  # radians
 
@@ -1576,21 +1868,10 @@ class ResolvedUniformDiskSource(dl.PointSource):
         n_r_integral: int = 20,
         n_theta_integral: int = 20,
     ):
-        """
-        Parameters
-        ----------
-        wavelengths : Array, metres
-            The array of wavelengths at which the spectrum is defined.
-        position : Array, radians = np.zeros(2)
-            The (x, y) on-sky position of this object.
-        flux : float, photons = 1.
-            The flux of the object.
-        distribution : Array = np.ones((3, 3))
-            The array of intensities representing the resolved source.
-        weights : Array = None
-            The spectral weights of the object.
-        spectrum : Spectrum = None
-            The spectrum of this object, represented by a Spectrum object.
+        """Resolved uniform disk source used for incoherent imaging tests.
+
+        The source integrates over a filled circular disk by quadrature in
+        polar coordinates and returns an incoherent PSF (intensity image).
         """
         if isinstance(r_max, (float, int)):
             r_max = np.array(r_max, float)
