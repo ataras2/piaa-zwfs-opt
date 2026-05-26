@@ -16,6 +16,7 @@ from jax import grad, jit, vmap, linearize
 import Aspheres
 import WFSoptimize
 import collections
+import serialisation
 
 
 def sim_dims(
@@ -638,7 +639,7 @@ def load_model(pth):
     asdf_fname = f"optimization_{file_time_info}.asdf"
     asdf_pth = os.path.join(pth, asdf_fname)
 
-    core_model = zdx.experimental.deserialise(load_pth)
+    core_model = serialisation.deserialise(load_pth)
 
     return core_model, asdf_pth
 

@@ -475,15 +475,23 @@ with asdf.AsdfFile(tree) as af:
     print(f"Saved configuration and results to {filename}")
 
 # also save the model file using zdx.experimental.serialise
-# zdx.experimental.serialise(
-#     os.path.join(save_pth, f"core_model_{date_str}.model"),
-#     core_model,
-# )
 
-import pickle
+import serialisation
 
-with open(os.path.join(save_pth, f"core_model_{date_str}.pkl"), "wb") as f:
-    pickle.dump(core_model, f)
+serialisation.serialise(
+    os.path.join(save_pth, f"core_model_{date_str}.model"),
+    core_model,
+)
+
+# import pickle
+
+# with open(os.path.join(save_pth, f"core_model_{date_str}.pkl"), "wb") as f:
+#     pickle.dump(core_model, f)
+
+# import dill
+
+# with open(os.path.join(save_pth, f"core_model_{date_str}.dill"), "wb") as f:
+#     dill.dump(core_model, f)
 
 
 print("Saved core model.")
