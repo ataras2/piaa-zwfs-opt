@@ -336,6 +336,7 @@ class BasisGlassLayer(dl.optical_layers.OpticalLayer):
         self.basis = basis
         self.coefficients = coefficients
         self.refractive_index = refractive_index
+
     """A glass layer constructed from a linear basis of thickness patterns.
 
     The layer's optical path difference is the dot-product of `basis` and
@@ -404,6 +405,9 @@ class BasisGlassLayer(dl.optical_layers.OpticalLayer):
             phase = np.angle(np.exp(1j * phase))
 
         return phase
+
+    def __call__(self, wavefront: dl.Wavefront) -> dl.Wavefront:
+        return self.apply(wavefront)
 
 
 def annulus(coords, inner_radius, outer_radius):
@@ -918,6 +922,7 @@ class ModelCore(zdx.base.Base):
     Fisher information, losses) with respect to instrument or aberration
     parameters.
     """
+
     params: dict
     tel: dl.Telescope
 
@@ -1000,6 +1005,7 @@ class ModelCore(zdx.base.Base):
         array-like
             Jacobian of the image with respect to the parameters provided.
         """
+
         def new_intensity(params_dict, model):
             # update each entry in core_model.params
             for key, value in params_dict.items():
@@ -1692,21 +1698,21 @@ def make_system(
         piaa_lens_1 = Aspheres.AsphericLens(
             asphere_profile=sag1_asphere,
             material=dlMaterials.material_factory(piaa_material),
-            coords=sample_wf.coordinates,
+            coords=sample_wf.coordinates(),
             decentre_scale=1e-6,
         )
 
         piaa_lens_2 = Aspheres.AsphericLens(
             asphere_profile=sag2_asphere,
             material=dlMaterials.material_factory(piaa_material),
-            coords=sample_wf.coordinates,
+            coords=sample_wf.coordinates(),
             decentre_scale=1e-6,
         )
 
         inv_piaa_lens_1 = Aspheres.AsphericLens(
             asphere_profile=sag1_asphere,
             material=dlMaterials.material_factory(piaa_material),
-            coords=sample_wf.coordinates,
+            coords=sample_wf.coordinates(),
             is_inverse=True,
             decentre_scale=1e-6,
         )
@@ -1714,7 +1720,7 @@ def make_system(
         inv_piaa_lens_2 = Aspheres.AsphericLens(
             asphere_profile=sag2_asphere,
             material=dlMaterials.material_factory(piaa_material),
-            coords=sample_wf.coordinates,
+            coords=sample_wf.coordinates(),
             is_inverse=True,
             decentre_scale=1e-6,
         )

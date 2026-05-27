@@ -55,7 +55,7 @@ class MildAsphere(zdx.base.Base):  # TODO: maybe becomes dlu?
     ):
         self.rho_max = aperture_radius
         self.f_rho_max = sag_at_edge
-        self.M = n_terms
+        self.M = int(n_terms)
 
         if self.M > self.Qpoly_coeffs.shape[0]:
             raise ValueError(
@@ -93,7 +93,9 @@ class MildAsphere(zdx.base.Base):  # TODO: maybe becomes dlu?
         factor = u**2 * (1 - u**2) / np.sqrt(1 - self.c_bfs**2 * self.rho_max**2 * u**2)
         summation = (
             np.sum(
-                np.array([self.coeffs[m] * self.Qbfs(m, u**2) for m in range(self.M)]),
+                np.array(
+                    [self.coeffs[m] * self.Qbfs(m, u**2) for m in range(int(self.M))]
+                ),
                 axis=0,
             )
             * self.scale
@@ -263,6 +265,9 @@ class AsphericLens(ParametricRefractiveOptic):
             sag = -sag
         return sag
 
+    def __call__(self, wavefront: dl.Wavefront) -> dl.Wavefront:
+        return self.apply(wavefront)
+
 
 class PIAAset(dl.optical_layers.OpticalLayer):
     piaa_lens_1: AsphericLens
@@ -355,3 +360,6 @@ class PIAAset(dl.optical_layers.OpticalLayer):
         ax.legend()
         ax.set_title("PIAA Lens Profiles")
         return ax
+
+    def __call__(self, wavefront: dl.Wavefront) -> dl.Wavefront:
+        return self.apply(wavefront)

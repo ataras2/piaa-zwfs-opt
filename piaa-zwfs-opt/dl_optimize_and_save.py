@@ -326,7 +326,8 @@ if optimize:
     solver = optx.LBFGS(
         rtol=rtol,
         atol=atol,
-        verbose=frozenset({"step", "accepted", "loss", "step_size"}),
+        # verbose=frozenset({"step", "accepted", "loss", "step_size"}),
+        verbose=True,
         norm=optx.rms_norm,
     )
 
