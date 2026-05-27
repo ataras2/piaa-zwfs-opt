@@ -580,7 +580,7 @@ class ThreePlaneSystem(dl.optical_layers.OpticalLayer):
         focus_pixel_scale: float,
         mask_at_focus: dl.BaseLayer,
     ):
-        self.focus_npixels = focus_npixels
+        self.focus_npixels = int(focus_npixels)
         self.focus_pixel_scale = focus_pixel_scale
         self.mask_at_focus = mask_at_focus
 
@@ -592,7 +592,7 @@ class ThreePlaneSystem(dl.optical_layers.OpticalLayer):
         # Propagate to focus
         # foc_wf = dl.MFT(focus_npixels, focus_pixel_scale).apply(wavefront)
         foc_wf = dl.Wavefront(
-            npixels=self.focus_npixels,
+            npixels=int(self.focus_npixels),
             diameter=self.focus_pixel_scale * self.focus_npixels,
             wavelength=wavefront.wavelength,
         )
@@ -601,7 +601,7 @@ class ThreePlaneSystem(dl.optical_layers.OpticalLayer):
             pixel_scale_in=wavefront.pixel_scale,
             wavelength=wavefront.wavelength,
             pixel_scale_out=self.focus_pixel_scale,
-            npixels_out=self.focus_npixels,
+            npixels_out=int(self.focus_npixels),
         )
         foc_wf = foc_wf.set(["phasor"], [foc_phasor])
         foc_wf -= self.mask_at_focus.apply(foc_wf)
@@ -613,7 +613,7 @@ class ThreePlaneSystem(dl.optical_layers.OpticalLayer):
             pixel_scale_in=self.focus_pixel_scale,
             wavelength=wavefront.wavelength,
             pixel_scale_out=wavefront.pixel_scale,
-            npixels_out=wavefront.npixels,
+            npixels_out=int(wavefront.npixels),
             inverse=True,
         )
 
@@ -802,6 +802,9 @@ class IdealWFS(dl.optical_layers.OpticalLayer):
             "phasor",
             Eo,
         )
+
+    def __call__(self, wavefront: dl.Wavefront) -> dl.Wavefront:
+        return self.apply(wavefront)
 
 
 class GlassDot(Aspheres.ParametricRefractiveOptic):
@@ -1166,7 +1169,7 @@ class ModelCore(zdx.base.Base):
         sim_diam = model_copy.tel.get("optics.diameter")
 
         args = {
-            "wf_npixels": wfnpix,
+            "wf_npixels": int(wfnpix),
             "sim_diam": sim_diam,
             "pupil_diameter": pupil_diameter,
             "pupil": model_copy.get_aperture(),
@@ -1443,6 +1446,11 @@ def generate_idealwfs_optics(core_model):
         "layers",
         new_layers,
     )
+
+    new_tel = new_tel.set(
+        ["wf_npixels", "kernel_size"],
+        [int(new_tel.get("wf_npixels")), int(new_tel.get("kernel_size"))],
+        )
 
     new_params = collections.OrderedDict()
     new_params["phase_coefficients"] = core_model.get("params.phase_coefficients")
