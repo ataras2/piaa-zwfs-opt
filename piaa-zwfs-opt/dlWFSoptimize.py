@@ -46,7 +46,9 @@ def sim_dims(
     return actual_sim_diameter, actual_wf_npixels, sim_upsample
 
 
-def apply_complex_map(field, cmap, power=1.0, normalise=True, shift=0.0):
+def apply_complex_map(
+    field, cmap=cmocean.cm.phase, power=1.0, normalise=True, shift=0.0
+):
     """
     Maps a complex-valued 2D array to an RGB image using a colormap.
 
@@ -110,10 +112,10 @@ def imshow_wavefront(
 
     kwargs = {}
     kwargs["extent"] = [
-        wavefront.coordinates[0].min(),
-        wavefront.coordinates[0].max(),
-        wavefront.coordinates[1].min(),
-        wavefront.coordinates[1].max(),
+        wavefront.coordinates()[0].min(),
+        wavefront.coordinates()[0].max(),
+        wavefront.coordinates()[1].min(),
+        wavefront.coordinates()[1].max(),
     ]
 
     if show == "complex":
@@ -1309,7 +1311,7 @@ def smart_hessian(
         Hessian matrix for the flattened selected parameters.
     """
     # Build X vec
-    pytree = zdx.tree.set_array(pytree, parameters)
+    pytree = pytree.set(parameters)
 
     if len(parameters) == 1:
         parameters = [parameters]
@@ -1450,7 +1452,7 @@ def generate_idealwfs_optics(core_model):
     new_tel = new_tel.set(
         ["wf_npixels", "kernel_size"],
         [int(new_tel.get("wf_npixels")), int(new_tel.get("kernel_size"))],
-        )
+    )
 
     new_params = collections.OrderedDict()
     new_params["phase_coefficients"] = core_model.get("params.phase_coefficients")

@@ -3,3 +3,8 @@ results/
 __pycache__/
 
 
+*.zip
+piaa-zwfs-opt/piaa_fibre_nulling.py
+piaa-zwfs-opt/piaa_fiber_nulling_opt.ipynb
+piaa-zwfs-opt/piaa_fiber_nulling_opt_edit.ipynb
+piaa-zwfs-opt/jwst_aperture_64.npy

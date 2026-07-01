@@ -133,14 +133,39 @@ def compute_losses(model, magnitude):
     return model.loss("cov_trace_normed")
 
 
+def compute_losses_no_jit(model, magnitude):
+    aperture = model.tel.optics.TransmissiveLayer
+    wf_npixels = model.tel.optics.wf_npixels
+    sim_diameter = model.tel.optics.diameter
+
+    wavels = model.tel.source.wavelengths
+    photons_per_exposure = dlwfs.mag2flux(
+        magnitude,
+        dlwfs.zero_points[waveband],
+        dlwfs.aperture_area(aperture.transmission, wf_npixels, sim_diameter),
+        exposure_time,
+        wavels.max() - wavels.min(),
+    )
+
+    model = model.set("tel.source.flux", photons_per_exposure)
+
+    return model.loss("cov_trace_normed")
+
 mods["ideal"] = dlwfs.generate_idealwfs_optics(mods["0.0"])
 
 import jax
 
 losses = {}
 for mod_key, mod in mods.items():
-    losses[mod_key] = jax.vmap(compute_losses, in_axes=(None, 0))(mod, eval_magnitudes)
-
+    if mod_key not in ["ideal"]:
+        losses[mod_key] = jax.vmap(compute_losses, in_axes=(None, 0))(
+            mod, eval_magnitudes
+        )
+    else:
+        # need to do this one by for loop for some reason
+        losses[mod_key] = np.array(
+            [compute_losses_no_jit(mod, mag) for mag in eval_magnitudes]
+        )
 # %%
 
 plt.figure(figsize=(3.33, 2.5), dpi=300)
@@ -558,7 +583,7 @@ loss_bnd = mods["0.0"].loss_bound_idealwfs("cov_trace_normed")
 # )
 
 axs["loss"].set_xlabel("$m_Z$ [mag]", labelpad=0)
-axs["loss"].set_ylabel("Loss [$10^{-3}\\mu$m$^2$/ph.]", labelpad=0)
+axs["loss"].set_ylabel("Normalized Loss", labelpad=0)
 axs["loss"].set_xlim(eval_magnitudes.min(), eval_magnitudes.max())
 # axs["loss"].set_ylim(0.9 * loss_bnd * 1e3, losses["0.0"].max() * 1e3 * 1.6)
 axs["loss"].set_ylim(0.8, 2.5)

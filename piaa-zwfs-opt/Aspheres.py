@@ -2,6 +2,7 @@ import jax.numpy as np
 import numpy as onp
 import zodiax as zdx
 import dLux as dl
+import jax
 import dlMaterials
 import dLux.utils as dlu
 from abc import abstractmethod
@@ -82,9 +83,11 @@ class MildAsphere(zdx.base.Base):  # TODO: maybe becomes dlu?
     def sag(self, rho):
         first = self.c_bfs * rho**2 / (1 + np.sqrt(1 - self.c_bfs**2 * rho**2))
         second = self.D_bfs(rho / self.rho_max)
-        return self._scaled_f_rho_max * (rho > self.rho_max) + (first + second) * (
-            rho <= self.rho_max
-        )  # TODO: extend option?
+        return np.where(
+            rho > self.rho_max,
+            self._scaled_f_rho_max,
+            first + second,
+        )
 
     def D_bfs(self, u):
         """

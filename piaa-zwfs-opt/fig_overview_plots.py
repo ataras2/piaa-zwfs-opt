@@ -13,7 +13,6 @@ import os
 import asdf
 import numpy as onp
 import zodiax as zdx
-import cmasher as cmr
 
 import scienceplots
 
@@ -88,7 +87,7 @@ FI = model.compute_FI("phase_coefficients")
 FI = FI[:n_modes, :n_modes]
 clims = np.max(np.abs(FI))
 
-
+plt.figure(dpi=300, figsize=(2, 2))
 plt.imshow(FI, vmin=-clims, vmax=clims, cmap="bwr")
 # remove ticks
 plt.xticks([])

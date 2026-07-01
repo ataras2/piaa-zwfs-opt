@@ -168,8 +168,8 @@ for i, model_name in enumerate(models_used):
 
     color = f"C{i}" if not (model_name == "ideal WFS") else "k"
 
-    plt.plot(freqs, sin_sensitivity, color=color, ls=":", alpha=0.5)
-    plt.plot(freqs, cos_sensitivity, color=color, ls="--", alpha=0.5)
+    plt.plot(freqs, sin_sensitivity, color=color, ls="--", alpha=0.5)
+    plt.plot(freqs, cos_sensitivity, color=color, ls=":", alpha=0.5)
     plt.plot(freqs, combined_sensitivity, color=color, ls="-")
     plt.plot(
         [], [], color=color, ls="-", label=f"{leg_labels.get(model_name, model_name)}"
@@ -211,7 +211,6 @@ plt.xlim(0, np.max(freqs))
 
 # gridspec
 import matplotlib.gridspec as gridspec
-import cmasher as cmr
 
 plt.figure(figsize=(3.4, 7.9), dpi=300)
 gs0 = gridspec.GridSpec(3, 1, height_ratios=[1.0, 3, 1.0], hspace=0.25)
@@ -282,11 +281,11 @@ def plot_FI_subplot(ax, FI_dict, freq_scale, clip_yticks=False, rm_xtick_labels=
 
         color = f"C{i}" if not (model_name == "ideal WFS") else "k"
 
-        ax.plot(freqs, sin_sensitivity, color=color, ls=":", alpha=0.5)
-        ax.plot(freqs, cos_sensitivity, color=color, ls="--", alpha=0.5)
+        ax.plot(freqs, sin_sensitivity, color=color, ls="--", alpha=0.5)
+        ax.plot(freqs, cos_sensitivity, color=color, ls=":", alpha=0.5)
         ax.plot(freqs, combined_sensitivity, color=color, ls="-")
-    ax.plot([], [], color="k", ls=":", label="sin")
-    ax.plot([], [], color="k", ls="--", label="cos")
+    ax.plot([], [], color="k", ls="--", label="sin")
+    ax.plot([], [], color="k", ls=":", label="cos")
     ax.plot([], [], color="k", ls="-", label="both")
 
     ax.set_xlim(np.min(freqs), np.max(freqs))
