@@ -181,8 +181,8 @@ if debug_plots:
     dlwfs.imshow_wavefront(sample_wf)
 
 # %%
-piaa_set = piaa_set.set("piaa_lens_1.decentre", np.array([1000, 0]))
-piaa_set = piaa_set.set("piaa_lens_2.decentre", np.array([1000, 0]))
+piaa_set = piaa_set.set("piaa_lens_1.decentre", np.array([50, 0]))
+piaa_set = piaa_set.set("piaa_lens_2.decentre", np.array([50, 0]))
 
 sample_wf = init_wf
 plt.figure()
@@ -194,3 +194,11 @@ plt.figure()
 sample_wf = inv_piaa_set.apply(sample_wf)
 dlwfs.imshow_wavefront(sample_wf)
 # %%
+rhos = np.linspace(0, final_D / 2, 500)
+piaa1 = piaa_set.get("piaa_lens_1")
+# piaa1 = piaa1.set({"asphere_profile.f_rho_max":0.0})
+sag1_profile = -piaa1.asphere_profile.sag(rhos)
+plt.plot(rhos * 1e3, sag1_profile * 1e6)
+piaa1 = piaa1.set({"asphere_profile.coeffs":np.zeros(n_sag_terms)})
+sag1_profile = -piaa1.asphere_profile.sag(rhos)
+plt.plot(rhos * 1e3, sag1_profile * 1e6)
