@@ -272,15 +272,41 @@ gs = GridSpec(2, 3, hspace=0.3, wspace=0.3)
 
 axs = {}
 axs["all"] = plt.subplot(gs[0, 0])
-axs["piaa_surf"] = plt.subplot(gs[0, 1])
-axs["piaa_decentres1"] = plt.subplot(gs[1, 0])
-axs["piaa_decentres2"] = plt.subplot(gs[1, 1])
-axs["phase_mask"] = plt.subplot(gs[0, 2])
-axs["phase_mask_in_mask_space"] = plt.subplot(gs[1, 2])
+axs["piaa_surf"] = plt.subplot(gs[1, 0])
+axs["piaa_decentres1"] = plt.subplot(gs[1, 1])
+axs["piaa_decentres2"] = plt.subplot(gs[1, 2])
+axs["phase_mask"] = plt.subplot(gs[0, 1])
+axs["phase_mask_in_mask_space"] = plt.subplot(gs[0, 2])
+
+axs_arr = [
+    [axs["all"], axs["phase_mask"], axs["phase_mask_in_mask_space"]],
+    [axs["piaa_surf"], axs["piaa_decentres1"], axs["piaa_decentres2"]],
+]
+
+
+def format_axs_border(ax, color=None, linewidth=2.0):
+    # remove minor ticks
+    ax.tick_params(axis="x", which="minor", bottom=False)
+    ax.tick_params(axis="y", which="minor", left=False)
+    ax.tick_params(axis="x", which="minor", top=False)
+    ax.tick_params(axis="y", which="minor", right=False)
+
+    if color is not None:
+        ax.spines["top"].set_color(color)
+        ax.spines["bottom"].set_color(color)
+        ax.spines["left"].set_color(color)
+        ax.spines["right"].set_color(color)
+
+    if linewidth is not None:
+        ax.spines["top"].set_linewidth(linewidth)
+        ax.spines["bottom"].set_linewidth(linewidth)
+        ax.spines["left"].set_linewidth(linewidth)
+        ax.spines["right"].set_linewidth(linewidth)
+
 
 # all is the same as above
 im = axs["all"].imshow(H_normed, norm=mcolors.CenteredNorm(vcenter=0), cmap="RdBu_r")
-cbar = fig.colorbar(im, ax=axs["all"])
+cbar = fig.colorbar(im, ax=axs["all"], fraction=0.046, pad=0.04)
 axs["all"].set_title("Hessian of all parameters")
 axs["all"].axis("off")
 
@@ -297,6 +323,7 @@ for i, (start, end) in enumerate(rect_positions):
         )
     )
 
+
 # piaa surf time
 idxs_to_plot = np.arange(rect_positions[1][0], rect_positions[1][1])
 im = axs["piaa_surf"].imshow(
@@ -304,7 +331,7 @@ im = axs["piaa_surf"].imshow(
     norm=mcolors.CenteredNorm(vcenter=0),
     cmap="RdBu_r",
 )
-cbar = fig.colorbar(im, ax=axs["piaa_surf"])
+cbar = fig.colorbar(im, ax=axs["piaa_surf"], fraction=0.046, pad=0.04)
 axs["piaa_surf"].set_title("PIAA parameters")
 param_names = (
     "params.piaa1_coeffs",
@@ -312,18 +339,178 @@ param_names = (
     "params.piaa2_coeffs",
     "params.piaa2_f_rho_max",
 )
+
+nice_label = {
+    "params.piaa1_coeffs": "L1 $Q_{{\\mathrm BFS}}$",
+    "params.piaa1_f_rho_max": "L1 f($\\rho_{\\mathrm{max}}$)",
+    "params.piaa2_coeffs": "L2 $Q_{{\\mathrm BFS}}$",
+    "params.piaa2_f_rho_max": "L2 f($\\rho_{\\mathrm{max}}$)",
+}
+
 xlabels = []
 for param in param_names:
     a = unflatten(np.arange(jax.flatten_util.ravel_pytree(params)[0].size))[param]
     name = param.split(".")[-1]
     if a.size > 1:
-        xlabels += [f"{name}[{i}]" for i in range(a.size)]
+        tmp = []
+        for i in range(a.size):
+            tmp.append(f"{nice_label[param]}[{i}]")
+        xlabels += tmp
     else:
-        xlabels.append(name)
+        xlabels.append(f"{nice_label[param]}")
+
 axs["piaa_surf"].set_xticks(np.arange(len(xlabels)))
-axs["piaa_surf"].set_xticklabels(xlabels, rotation=60, fontsize=6)
-# remove minor ticks
-axs["piaa_surf"].tick_params(axis="x", which="minor", bottom=False)
-axs["piaa_surf"].tick_params(axis="y", which="minor", left=False)
-axs["piaa_surf"].tick_params(axis="x", which="minor", top=False)
-axs["piaa_surf"].tick_params(axis="y", which="minor", right=False)
+axs["piaa_surf"].set_xticklabels(xlabels, rotation=90, fontsize=6)
+# rm yticks
+axs["piaa_surf"].set_yticks(np.arange(len(xlabels)))
+axs["piaa_surf"].set_yticklabels([])
+
+format_axs_border(axs["piaa_surf"], color=group_colors[1], linewidth=2)
+
+# now to do the mask block
+im = axs["phase_mask"].imshow(
+    (H_normed)[idxs["params.phase_mask_coeffs"], :][
+        :, idxs["params.phase_mask_coeffs"]
+    ],
+    norm=mcolors.CenteredNorm(vcenter=0),
+    cmap="RdBu_r",
+)
+cbar = fig.colorbar(im, ax=axs["phase_mask"], fraction=0.046, pad=0.04)
+axs["phase_mask"].set_title("Phase mask coefficients")
+axs["phase_mask"].set_xticks(np.arange(len(idxs["params.phase_mask_coeffs"])))
+axs["phase_mask"].set_xticklabels([])
+axs["phase_mask"].set_yticks(np.arange(len(idxs["params.phase_mask_coeffs"])))
+axs["phase_mask"].set_yticklabels([])
+format_axs_border(axs["phase_mask"], color=group_colors[0], linewidth=2)
+
+# now the mask in mask space
+# H_mask = (H_normed)[idxs["params.phase_mask_coeffs"], :][
+#     :, idxs["params.phase_mask_coeffs"]
+# ]
+# mask = model.get("tel.ThreePlaneSystem").mask_at_focus
+# pattern = mask.set({"coefficients": np.diag(H_mask)}).eval_basis() * 1e6
+
+# im = axs["phase_mask_in_mask_space"].imshow(pattern, cmap="viridis")
+# # cbar
+# cbar = fig.colorbar(im, ax=axs["phase_mask_in_mask_space"], fraction=0.046, pad=0.04)
+# axs["phase_mask_in_mask_space"].set_title("Diagonal Hessian in mask space")
+# axs["phase_mask_in_mask_space"].set_xticks([])
+# axs["phase_mask_in_mask_space"].set_yticks([])
+# format_axs_border(axs["phase_mask_in_mask_space"], color=group_colors[0], linewidth=2)
+
+# xscale = model.tel.ThreePlaneSystem.focus_pixel_scale/(model.tel.wavelengths.mean()/(6.5*model.tel.Magnifier.magnification))
+
+xvals = np.arange(len(idxs["params.phase_mask_coeffs"]))
+axs["phase_mask_in_mask_space"].plot(
+    xvals,
+    np.diag(
+        (H_normed)[idxs["params.phase_mask_coeffs"], :][
+            :, idxs["params.phase_mask_coeffs"]
+        ]
+    ),
+    color=group_colors[0],
+)
+format_axs_border(axs["phase_mask_in_mask_space"], color=group_colors[0], linewidth=2)
+axs["phase_mask_in_mask_space"].set_title("Diagonal Hessian in mask space")
+axs["phase_mask_in_mask_space"].set_xlabel("Radius index")
+
+
+# now the two decenters
+piaa1_idxs = np.arange(rect_positions[2][0], rect_positions[2][1])
+im = axs["piaa_decentres1"].imshow(
+    (H_normed)[piaa1_idxs, :][:, piaa1_idxs],
+    norm=mcolors.CenteredNorm(vcenter=0),
+    cmap="RdBu_r",
+)
+cbar = fig.colorbar(im, ax=axs["piaa_decentres1"], fraction=0.046, pad=0.04)
+axs["piaa_decentres1"].set_title("PIAA1 decentres")
+axs["piaa_decentres1"].set_xticks(np.arange(len(piaa1_idxs)))
+axs["piaa_decentres1"].set_xticklabels([])
+axs["piaa_decentres1"].set_yticks(np.arange(len(piaa1_idxs)))
+axs["piaa_decentres1"].set_yticklabels([])
+format_axs_border(axs["piaa_decentres1"], color=group_colors[2], linewidth=2)
+# x labels
+nice_label = {
+    "params.piaa1_lens1_decentre": "L1 decentre",
+    "params.piaa1_lens2_decentre": "L2 decentre",
+    "params.piaa2_lens1_decentre": "L1 decentre",
+    "params.piaa2_lens2_decentre": "L2 decentre",
+}
+params_to_plot = [
+    "params.piaa1_lens1_decentre",
+    "params.piaa1_lens2_decentre",
+]
+xlabels = []
+for param in params_to_plot:
+    a = unflatten(np.arange(jax.flatten_util.ravel_pytree(params)[0].size))[param]
+    name = param.split(".")[-1]
+    if a.size > 1:
+        tmp = []
+        for i in range(a.size):
+            tmp.append(f"{nice_label[param]}[{i}]")
+        xlabels += tmp
+    else:
+        xlabels.append(f"{nice_label[param]}")
+axs["piaa_decentres1"].set_xticks(np.arange(len(xlabels)))
+axs["piaa_decentres1"].set_xticklabels(xlabels, rotation=90, fontsize=6)
+
+
+piaa2_idxs = np.arange(rect_positions[3][0], rect_positions[3][1])
+im = axs["piaa_decentres2"].imshow(
+    (H_normed)[piaa2_idxs, :][:, piaa2_idxs],
+    norm=mcolors.CenteredNorm(vcenter=0),
+    cmap="RdBu_r",
+)
+cbar = fig.colorbar(im, ax=axs["piaa_decentres2"], fraction=0.046, pad=0.04)
+axs["piaa_decentres2"].set_title("PIAA2 decentres")
+axs["piaa_decentres2"].set_xticks(np.arange(len(piaa2_idxs)))
+axs["piaa_decentres2"].set_xticklabels([])
+axs["piaa_decentres2"].set_yticks(np.arange(len(piaa2_idxs)))
+axs["piaa_decentres2"].set_yticklabels([])
+format_axs_border(axs["piaa_decentres2"], color=group_colors[3], linewidth=2)
+axs["piaa_decentres2"].set_xticks(np.arange(len(xlabels)))
+axs["piaa_decentres2"].set_xticklabels(xlabels, rotation=90, fontsize=6)
+
+
+# add letters to the top left of each subplot
+letters = "abcdef"
+# letters in the form (a) in top left corner, using axs_array to infer the order
+for i, row in enumerate(axs_arr):
+    for j, ax in enumerate(row):
+        ax.text(
+            -0.05,
+            1.05,
+            f"({letters[i*len(row)+j]})",
+            transform=ax.transAxes,
+            fontsize=12,
+            fontweight="bold",
+            va="bottom",
+            ha="right",
+        )
+
+# annotate inside the all with the right letter in the top right corner
+
+annotation = (
+    (0.82, 0.9, "(b-c)"),
+    (0.82, 0.35, "(d)"),
+    (0.98, 0.14, "(e)"),
+    (0.92, 0.00, "(f)"),
+)
+
+for i, a in enumerate(annotation):
+    x, y, txt = a
+    axs["all"].text(
+        x,
+        y,
+        txt,
+        color=f"C{i}",
+        fontsize=8,
+        ha="center",
+        va="center",
+        transform=axs["all"].transAxes,
+    )
+
+plt.savefig(
+    os.path.join(fig_pth, "hessian_all_params.pdf"), dpi=300, bbox_inches="tight"
+)
+# %%
