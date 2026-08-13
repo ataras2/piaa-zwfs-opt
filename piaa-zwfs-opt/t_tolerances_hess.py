@@ -514,3 +514,16 @@ plt.savefig(
     os.path.join(fig_pth, "hessian_all_params.pdf"), dpi=300, bbox_inches="tight"
 )
 # %%
+# save everything and the order of params
+import numpy as onp
+
+onp.savez(
+    os.path.join(fig_pth, "hessian_all_params.npz"),
+    H_reordered=H_reordered,
+    H_raw=H,
+    H_normed=H_normed,
+    new_order=new_order,
+    params=params,
+    # groups=groups,
+    group_colors=group_colors,
+)

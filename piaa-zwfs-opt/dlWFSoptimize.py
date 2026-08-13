@@ -1022,7 +1022,7 @@ class ModelCore(zdx.base.Base):
 
         return fn(around_params)
 
-    def compute_FI(self, abberation_name: str):
+    def compute_FI(self, abberation_name: str, return_J: bool = False):
         """Compute the Fisher information matrix for a named aberration set.
 
         Parameters
@@ -1043,6 +1043,9 @@ class ModelCore(zdx.base.Base):
         read_noise = self.get("params.read_noise")
 
         J = J.reshape((-1, len(aberration_dict[abberation_name])))
+
+        if return_J:
+            return J.T@(J / (I.flatten()[:, None] + read_noise**2)), J
 
         return J.T @ (J / (I.flatten()[:, None] + read_noise**2))
 

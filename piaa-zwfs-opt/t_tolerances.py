@@ -47,6 +47,43 @@ model, _ = dlwfs.load_model(pth)
 plt.imshow(model.img())
 plt.xticks([])
 plt.yticks([])
+
+# %%
+
+
+def piaa_profiles(model):
+    piaa_set = model.tel.optics.PIAAset_0
+
+    rho_max = piaa_set.piaa_lens_1.asphere_profile.rho_max
+    rhos = np.linspace(0, rho_max, 100)
+
+    z1 = piaa_set.piaa_lens_1.asphere_profile.sag(rhos)
+    z2 = piaa_set.piaa_lens_2.asphere_profile.sag(rhos)
+
+    return rhos, z1, z2
+
+
+rhos, z1, z2 = piaa_profiles(model)
+
+plt.figure(figsize=(1.5, 1))
+
+plt.plot(rhos * 1e3, z1 * 1e6, label="PIAA Lens 1")
+plt.plot(rhos * 1e3, z2 * 1e6, label="PIAA Lens 2")
+plt.xlabel("Radius (mm)", labelpad=0)
+plt.ylabel("Sag ($\mu$m)", labelpad=0)
+
+plt.xlim(0, rhos.max() * 1e3)
+
+import numpy as onp
+
+onp.savez(
+    os.path.join(fig_pth, "piaa_lens_profiles.npz"),
+    rhos=rhos,
+    z1=z1,
+    z2=z2,
+    dist=model.get("tel.optics.PIAAset_0.distance"),
+)
+
 # %%
 loss_type = "cov_trace_normed"
 
@@ -56,6 +93,11 @@ def loss_fn(p, model):
     model = model.set(p)
     return model.loss(loss_type=loss_type)
 
+
+# %%
+import numpy as onp
+
+Hdata = onp.load(os.path.join(fig_pth, "hessian_all_params.npz"), allow_pickle=True)
 
 # %%
 
@@ -98,7 +140,7 @@ opt_value = loss_fn_jit(params)
 opt_value
 
 # %%
-n_samples = 1000
+n_samples = 10
 
 # samples = jr.normal(
 #     jr.key(0), (n_samples, jax.flatten_util.ravel_pytree(params)[0].size)
@@ -110,13 +152,13 @@ mean, unflatten = jax.flatten_util.ravel_pytree(params)
 sigmas = {
     "params.piaa2_f_rho_max": 1e-3 * params["params.piaa2_f_rho_max"],
     "params.piaa1_f_rho_max": 1e-3 * params["params.piaa1_f_rho_max"],
-    "params.piaa1_coeffs": 40e-3,
-    "params.piaa2_coeffs": 40e-3,
-    "params.phase_mask_coeffs": 2e-3,
-    "params.piaa1_lens1_decentre": 5e0,
-    "params.piaa1_lens2_decentre": 5e0,
-    "params.piaa2_lens1_decentre": 5e0,
-    "params.piaa2_lens2_decentre": 5e0,
+    "params.piaa1_coeffs": 50e-3,
+    "params.piaa2_coeffs": 50e-3,
+    "params.phase_mask_coeffs": 30e-3,
+    "params.piaa1_lens1_decentre": 1e0,
+    "params.piaa1_lens2_decentre": 1e0,
+    "params.piaa2_lens1_decentre": 1e0,
+    "params.piaa2_lens2_decentre": 1e0,
 }
 
 Cov = np.zeros((n_params, n_params))
@@ -156,6 +198,20 @@ print(f"Median: {np.median(sub_opt_frac(res, opt_value)):.2e}")
 
 
 # %%
+
+sigmas = {
+    "params.piaa2_f_rho_max": 1e-3 * params["params.piaa2_f_rho_max"],
+    "params.piaa1_f_rho_max": 1e-3 * params["params.piaa1_f_rho_max"],
+    "params.piaa1_coeffs": 50e-3,
+    "params.piaa2_coeffs": 50e-3,
+    "params.phase_mask_coeffs": 30e-3,
+    "params.piaa1_lens1_decentre": 1e0,
+    "params.piaa1_lens2_decentre": 1e0,
+    "params.piaa2_lens1_decentre": 1e0,
+    "params.piaa2_lens2_decentre": 1e0,
+}
+
+
 def mc_sample_fn(
     fn,
     sample_generator,
@@ -183,14 +239,129 @@ def mc_sample_fn(
 
     return jax.lax.map(eval_sample, samples, batch_size=batch_size)
 
-n_samples = 10
-res_tmp = mc_sample_fn(
-    loss_fn_jit,
-    lambda key, shape: jr.multivariate_normal(key, mean, Cov, shape),
-    unflatten,
-    n_samples,
-    jr.key(0),
-    batch_size=3,
+
+n_samples = 100
+# res_tmp = mc_sample_fn(
+#     loss_fn_jit,
+#     lambda key, shape: jr.multivariate_normal(key, mean, Cov, shape),
+#     unflatten,
+#     n_samples,
+#     jr.key(0),
+#     batch_size=3,
+# )
+
+# %%
+sigma_scales = np.logspace(-1, 1, 10)
+res = np.zeros((len(sigma_scales), n_samples))
+for i, scale in enumerate(sigma_scales):
+    Cov = np.zeros((n_params, n_params))
+    for param, sigma in sigmas.items():
+        Cov = Cov.at[idxs[param], idxs[param]].set((scale * sigma) ** 2)
+
+    res = res.at[i].set(
+        mc_sample_fn(
+            loss_fn_jit,
+            lambda key, shape: jr.multivariate_normal(key, mean, Cov, shape),
+            unflatten,
+            n_samples,
+            jr.key(0),
+            batch_size=3,
+        )
+    )
+
+sigma_scales_dense = np.logspace(
+    np.log10(sigma_scales[0]), np.log10(sigma_scales[-1]), 100
 )
+res_2nd_order = np.zeros(len(sigma_scales_dense))
+for i, scale in enumerate(sigma_scales_dense):
+    Cov = np.zeros((n_params, n_params))
+    for param, sigma in sigmas.items():
+        Cov = Cov.at[idxs[param], idxs[param]].set((scale * sigma) ** 2)
+
+    res_2nd_order = res_2nd_order.at[i].set(
+        opt_value + 0.5 * np.trace(Cov @ Hdata["H_raw"])
+    )
+
+# %%
+plt.figure(figsize=(6, 4))
+plt.errorbar(
+    sigma_scales,
+    res.mean(axis=1) / opt_value,
+    yerr=res.std(axis=1) / opt_value,
+    fmt="o",
+    capsize=5,
+)
+
+plt.plot(
+    sigma_scales_dense, res_2nd_order / opt_value, label="2nd order approx", color="C1"
+)
+plt.legend()
+
+plt.xscale("log")
+plt.yscale("log")
+plt.xlabel("Sigma scale factor")
+plt.ylabel("Loss value")
+
+
+# %%
+plt.figure(figsize=(3, 2), dpi=150)
+plt.plot(
+    sigma_scales_dense,
+    res_2nd_order / opt_value,
+    label="2nd order approx",
+    color="C1",
+)
+
+plt.violinplot(
+    res.T / opt_value,
+    positions=sigma_scales,
+    widths=0.4
+    * sigma_scales,  # Proportional widths keep violins uniform on a log scale
+    showmeans=True,
+    showextrema=False,
+)
+# dummy plot to legend the violin plot
+plt.plot([], [], color="C0", label="Monte Carlo samples")
+
+plt.legend()
+plt.xscale("log")
+plt.xlabel("Error scale factor")
+plt.ylabel("Fractional sub-optimality")
+plt.yscale("log")
+plt.grid(
+    True, which="both", ls="--", alpha=0.5
+)  # Optional: adds grid lines for better readability
+
+
+pth = os.path.join(
+    "..",
+    "results",
+    "dl_optimizations",
+    "pre_det_change_opts",
+    "Fourier_basis_5_terms_Z_band_no_optimization_1.06_loD_init_eval_diam",
+)
+
+model2, _ = dlwfs.load_model(pth)
+
+normal_zern = model2.loss(loss_type=loss_type)
+
+plt.axhline(normal_zern / opt_value, color="C2", label="Normal Zernike Loss")
+plt.text(
+    sigma_scales[0] * 1.0,
+    normal_zern / opt_value,
+    f"1.06 ZWFS",
+    color="C2",
+    va="bottom",
+)
+
+plt.savefig(
+    os.path.join(fig_pth, "loss_vs_sigma_scale_violin_plot.pdf"),
+    dpi=300,
+    bbox_inches="tight",
+)
+
+# %%
+plt.hist(res[5], bins=20)
+plt.axvline(opt_value, color="r", label="opt value")
 
 # %%

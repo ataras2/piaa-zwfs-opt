@@ -47,7 +47,7 @@ class MildAsphere(zdx.base.Base):  # TODO: maybe becomes dlu?
     Qpoly_coeffs = np.array(QBFScoeffs)
 
     def __init__(
-        self,
+        self, 
         aperture_radius,
         sag_at_edge,
         n_terms,

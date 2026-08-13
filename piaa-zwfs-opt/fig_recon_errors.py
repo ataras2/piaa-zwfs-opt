@@ -59,9 +59,10 @@ axs["nonlinear"] = plt.subplot(gs0[1])
 
 
 name_to_label = {
-    "core_model": "PIAA ZWFS",
+    "core_model": "PIAA-ZWFS",
     "ideal_model": "Ideal",
     "nominal_zwfs_model": "1.06 ZWFS",
+    "nominal_2zwfs_model": "2.0 ZWFS",
 }
 
 plot_kwargs = dict(alpha=0.5, markersize=2)
@@ -212,17 +213,21 @@ axs2 = {}
 axs2["linear"] = plt.subplot(gs1[0])
 axs2["nonlinear"] = plt.subplot(gs1[1])
 
-nbins = 20
+nbins = 30
 
 # Convert x once to nm
 x_nm = np.asarray(rms_ins) * 1e9
 
 # Linear
-for name in recon_errors["linear"]:
+for name in sorted(recon_errors["linear"], key=lambda name: name != "ideal_model"):
     y_nm = np.asarray(recon_errors["linear"][name]) * 1e9
     centers, med, p16, p84 = compute_binned_stats(x_nm, y_nm, nbins=nbins)
     line = axs2["linear"].plot(
-        centers, med, label=name_to_label.get(name, name), lw=1.5
+        centers,
+        med,
+        label=name_to_label.get(name, name),
+        lw=1.5,
+        color="black" if name == "ideal_model" else None,
     )[0]
     c = line.get_color()
     axs2["linear"].fill_between(centers, p16, p84, color=c, alpha=0.2)
@@ -238,7 +243,7 @@ axs2["linear"].minorticks_on()
 axs2["linear"].tick_params(axis="y", which="minor", left=True, right=False, length=3)
 
 xlim2 = axs2["linear"].get_xlim()
-axs2["linear"].plot(xlim2, xlim2, "k--", label="y=x")
+axs2["linear"].plot(xlim2, xlim2, color="grey", ls="--", label="y=x")
 axs2["linear"].set_xlim(xlim2)
 
 axs2["linear"].text(
@@ -254,22 +259,53 @@ axs2["linear"].text(
 )
 
 # Non-linear
-for name in recon_errors["nonlinear"]:
+for name in sorted(recon_errors["nonlinear"], key=lambda name: name != "ideal_model"):
     y_nm = np.asarray(recon_errors["nonlinear"][name]) * 1e9
     centers, med, p16, p84 = compute_binned_stats(x_nm, y_nm, nbins=nbins)
     line = axs2["nonlinear"].plot(
-        centers, med, label=name_to_label.get(name, name), lw=1.5
+        centers,
+        med,
+        label=name_to_label.get(name, name),
+        lw=1.5,
+        alpha=0.7,
+        color="black" if name == "ideal_model" else None,
     )[0]
     c = line.get_color()
     axs2["nonlinear"].fill_between(centers, p16, p84, color=c, alpha=0.2)
 
 axs2["nonlinear"].set_xscale("log")
 axs2["nonlinear"].set_yscale("log")
-xlim2b = (rms_ins[0] * 1e9, rms_ins[-1] * 1e9)
-axs2["nonlinear"].plot(xlim2b, xlim2b, "k--", label="y=x")
+# xlim2b = (rms_ins[0] * 1e9, rms_ins[-1] * 1e9)
+xlim2b = (centers[0], centers[-1])
+axs2["nonlinear"].plot(xlim2b, xlim2b, color="grey", ls="--", label="y=x")
 axs2["nonlinear"].set_xlim(xlim2b)
 
 axs2["linear"].set_xlim(xlim2b)
+
+# Mark relevant wavefront-error scales above the top panel. The x-axis is in nm.
+wavelength_nm = 900
+for divisor in (1000, 100, 10):
+    x_marker = wavelength_nm / divisor
+    axs2["linear"].plot(
+        x_marker,
+        1.02,
+        marker="v",
+        color="black",
+        markersize=4,
+        transform=axs2["linear"].get_xaxis_transform(),
+        clip_on=False,
+    )
+    axs2["linear"].annotate(
+        rf"$\lambda/{divisor}$",
+        xy=(x_marker, 1.02),
+        xycoords=axs2["linear"].get_xaxis_transform(),
+        xytext=(0, 4),
+        textcoords="offset points",
+        ha="center",
+        va="bottom",
+        fontsize=8,
+        annotation_clip=False,
+    )
 
 
 # Match y-limits with the linear panel
@@ -330,7 +366,7 @@ axs2["linear"].text(
 
 
 plt.savefig(
-    "../results/figures/recon_errors_binned.svg", bbox_inches="tight", transparent=True
+    "../results/figures/recon_errors_binned.pdf", bbox_inches="tight", transparent=True
 )
 
 # %%
