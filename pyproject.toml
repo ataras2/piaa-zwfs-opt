@@ -6,21 +6,21 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "asdf>=5.3.0",
+    "cmasher>=1.9.2",
     "cmocean>=4.0.3",
     "dill>=0.4.1",
-    "dlux",
+    "dlux==0.14.0",
     "equinox==0.13.2",
     "hcipy>=0.7.0",
     "interpax>=0.3.14",
     "ipykernel>=7.2.0",
-    "jax[cuda12]>=0.10.1",
+    "jax[cuda12]==0.6.2",
     "numpy>=2.4.6",
     "optimistix>=0.1.0",
     "pcs-cep",
     "scienceplots>=2.2.1",
-    "zodiax>=0.5.0",
 ]
 
 [tool.uv.sources]
-dlux = { path = "../../../../../Progs/repos/dLux" }
-pcs-cep = { path = "../../../../../Progs/repos/pcs-cep" }
+pcs-cep = { path = "../../../../Progs/repos/pcs-cep" }
+dlux = { path = "../../../../Progs/repos/dLux" }

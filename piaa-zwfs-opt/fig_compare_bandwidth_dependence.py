@@ -8,6 +8,7 @@ os.environ["JAX_ENABLE_X64"] = "False"
 
 import dlWFSoptimize as dlwfs
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import jax.numpy as np
 import os
 import asdf
@@ -79,6 +80,14 @@ loss_values = np.array(loss_values)
 
 # %%
 ideal_model = dlwfs.generate_idealwfs_optics(models[all_folders[0]])
+# Keep optical control flags static when tracing the ideal model under JIT.
+ideal_model = ideal_model.set(
+    ["tel.TransmissiveLayer.normalise", "tel.BasisLayer.as_phase"],
+    [
+        bool(ideal_model.tel.TransmissiveLayer.normalise),
+        bool(ideal_model.tel.BasisLayer.as_phase),
+    ],
+)
 
 ideal_model_loss_values = []
 # only do the endpoints for speed
@@ -223,16 +232,12 @@ import matplotlib.gridspec as gridspec
 
 plt.figure(figsize=(3.4, 5.5), dpi=300)
 
-gs0 = gridspec.GridSpec(2, 1, height_ratios=[1.0, 1], hspace=0.2)
-gs01 = gridspec.GridSpecFromSubplotSpec(2, 2, subplot_spec=gs0[1], wspace=-0.2)
+gs0 = gridspec.GridSpec(2, 1, height_ratios=[1.0, 1], hspace=0.4)
 
 axs = {}
 
 axs["loss"] = plt.subplot(gs0[0])
-axs["no_piaa_narrow"] = plt.subplot(gs01[0, 0])
-axs["no_piaa_broad"] = plt.subplot(gs01[0, 1])
-axs["piaa_narrow"] = plt.subplot(gs01[1, 0])
-axs["piaa_broad"] = plt.subplot(gs01[1, 1])
+axs["mask"] = plt.subplot(gs0[1])
 
 
 # loss plot
@@ -360,78 +365,58 @@ axs["loss"].grid()
 axs["loss"].set_xlim(test_frac_bandwidths[0], test_frac_bandwidths[-1])
 
 
-def phase_mask_thickness(model):
-    thicc = model.tel.optics.ThreePlaneSystem.mask_at_focus.eval_basis()
-    return thicc
-
-
-mask_names = {
-    "no_piaa_narrow": "magellan_Fourier_basis_7_terms_900nm_9.0nm_bw_band_no_PIAA_annular_mask_point_source",
-    "no_piaa_broad": "magellan_Fourier_basis_7_terms_900nm_180.0nm_bw_band_no_PIAA_annular_mask_point_source",
-    "piaa_narrow": "magellan_Fourier_basis_7_terms_900nm_9.0nm_bw_band_with_PIAA_annular_mask_point_source",
-    "piaa_broad": "magellan_Fourier_basis_7_terms_900nm_180.0nm_bw_band_with_PIAA_annular_mask_point_source",
-}
-
-thickness_max = max(
-    [phase_mask_thickness(models[mask_name]).max() for mask_name in mask_names.values()]
-)
-thickness_min = min(
-    [phase_mask_thickness(models[mask_name]).min() for mask_name in mask_names.values()]
-)
-
-
-for ax_key, mask_name in mask_names.items():
-    model = models[mask_name]
-    ax = axs[ax_key]
-    im = ax.imshow(
-        phase_mask_thickness(model) * 1e6,
-        interpolation="none",
-        vmin=thickness_min * 1e6,
-        vmax=thickness_max * 1e6,
-        cmap="plasma",
-    )
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    # axis border should match the loss plot
-    # if no piaa, dashed border
-    # color C1 if narrow, C2 if broad
-    if "no_PIAA" in mask_name:
-        ls = "--"
+def phase_mask_profile(model, pupil_diameter):
+    """Return azimuthally averaged thickness in micrometres versus radius in lambda/D."""
+    tel = model._update_tel()
+    focal_system = tel.optics.ThreePlaneSystem
+    mask = focal_system.mask_at_focus
+    if isinstance(mask, dlwfs.GlassDot):
+        thickness = mask.generate_thickness()
     else:
-        ls = "-"
+        thickness = mask.eval_basis()
 
-    if "9.0nm" in mask_name:
-        color = colors["0.01"]
+    thickness = onp.asarray(thickness, dtype=float)
+    npixels = thickness.shape[0]
+    coords = onp.arange(npixels) - (npixels - 1) / 2
+    radius = onp.hypot(coords[:, None], coords[None, :])
+    # One-pixel annuli, restricted to complete circles inside the focal grid.
+    edges = onp.arange(npixels // 2 + 1)
+    counts, _ = onp.histogram(radius, bins=edges)
+    sums, _ = onp.histogram(radius, bins=edges, weights=thickness)
+    # The focal grid is angular; D is the pupil diameter after magnification.
+    output_diameter = pupil_diameter * tel.Magnifier.magnification
+    lambda_over_D = float(tel.source.wavelengths.mean()) / output_diameter
+    radii = (edges[:-1] + 0.5) * focal_system.focus_pixel_scale / lambda_over_D
+    return radii, sums / counts * 1e6
+
+
+for name, model in models.items():
+    pupil_diameter = dlwfs.aperture_name_to_pupil_diameter(name.split("_")[0])
+    radii, thickness = phase_mask_profile(model, pupil_diameter)
+    if "no_optimization" in name:
+        color = "C0"
+        linestyle = "--" if "2.0" in name else "-"
     else:
-        color = colors["0.20"]
-    for spine in ax.spines.values():
-        spine.set_edgecolor(color)
-        spine.set_linewidth(2.0)
-        spine.set_linestyle(ls)
+        opt_wavels = model.tel.source.wavelengths
+        opt_frac_bandwidth = (opt_wavels.max() - opt_wavels.min()) / opt_wavels.mean()
+        color = colors[f"{float(opt_frac_bandwidth):.2f}"]
+        linestyle = "--" if "no_PIAA" in name else "-"
+    axs["mask"].plot(radii, thickness, color=color, linestyle=linestyle)
 
-# common cbar on the right of all thickness plots
-cbar_ax = plt.gcf().add_axes([0.87, 0.13, 0.02, 0.3])
-cbar = plt.colorbar(im, cax=cbar_ax)
-cbar.set_label(r"Phase mask thickness [$\mu$m]")
-
+mask_legend = [
+    Line2D([], [], color=colors["0.01"], label="Narrowband"),
+    Line2D([], [], color=colors["0.20"], label="Broadband"),
+    Line2D([], [], color="C0", label="1.06 ZWFS"),
+    Line2D([], [], color="C0", linestyle="--", label="2.0 ZWFS"),
+    Line2D([], [], color="gray", label="PIAA"),
+    Line2D([], [], color="gray", linestyle="--", label="No PIAA"),
+]
+axs["mask"].set_xlabel(r"Radius [$\lambda/D$]")
+axs["mask"].set_ylabel(r"Mask thickness [$\mu$m]")
+axs["mask"].set_xlim(left=0, right=2.5)
+axs["mask"].legend(handles=mask_legend, ncol=2, fontsize=6, frameon=False)
+axs["mask"].grid()
 
 plt.savefig(fig_savepth, bbox_inches="tight")
-
-# %%
-
-mask_of_interest = "magellan_Fourier_basis_7_terms_900nm_180.0nm_bw_band_with_PIAA_annular_mask_point_source"
-# mask_of_interest = "magellan_Fourier_basis_7_terms_900nm_9.0nm_bw_band_with_PIAA_annular_mask_point_source"
-# mask_of_interest = "magellan_Fourier_basis_7_terms_900nm_9.0nm_bw_band_no_PIAA_annular_mask_point_source"
-
-model = models[mask_of_interest]
-
-
-plt.figure()
-ax = plt.gca()
-ax.imshow(phase_mask_thickness(model), interpolation="none")
-# rmove axis ticks
-ax.set_xticks([])
-ax.set_yticks([])
 
 # %%

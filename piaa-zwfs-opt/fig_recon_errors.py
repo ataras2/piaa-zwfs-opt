@@ -7,8 +7,10 @@ import os
 import dlWFSoptimize as dlwfs
 import dLux.utils as dlu
 
+import asdf
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 plt.style.use(["science"])
 plt.rcParams.update({"font.size": 10})
@@ -29,6 +31,7 @@ n_terms_errors = 45
 PIAA_model = (
     "magellan_Fourier_basis_7_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag"
 )
+exponent = -5 / 3
 
 save_pth = os.path.join(
     "..",
@@ -37,9 +40,11 @@ save_pth = os.path.join(
     "ablation_60",
     "recon_errors_asdf",
     f"{n_terms_errors}_terms_" + PIAA_model + "_recon_errors.asdf",
+    # f"{n_terms_errors}_terms_"
+    # + PIAA_model
+    # + f"_recon_errors_{np.round(exponent, 2)}.asdf",
 )
 # %%
-import asdf
 
 recon_errors_file = asdf.open(save_pth)
 
@@ -163,7 +168,6 @@ plt.savefig(
 
 # %%
 # Binned median and 16–84 percentile plots
-import numpy as np
 
 
 def compute_binned_stats(x, y, nbins=20):
@@ -367,6 +371,9 @@ axs2["linear"].text(
 
 plt.savefig(
     "../results/figures/recon_errors_binned.pdf", bbox_inches="tight", transparent=True
+)
+plt.savefig(
+    "../results/figures/recon_errors_binned.svg", bbox_inches="tight", transparent=True
 )
 
 # %%

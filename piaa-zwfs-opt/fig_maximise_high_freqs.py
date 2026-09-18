@@ -46,6 +46,7 @@ models = {
     # "High freq, neg FI": dlwfs.load_model(os.path.join(pth, models[0]))[0],
     "Many freq. (FI opt.)": dlwfs.load_model(os.path.join(pth, models[2]))[0],
     "Many freq. (Cov. opt.)": dlwfs.load_model(os.path.join(pth, models[3]))[0],
+    "1.06 ZWFS": dlwfs.load_model(os.path.join(pth, models[4]))[0],
 }
 
 default_model_name = "Many freq. (FI opt.)"

@@ -8,12 +8,12 @@ os.environ["JAX_ENABLE_X64"] = "False"
 
 import dlWFSoptimize as dlwfs
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import jax.numpy as np
 import os
 import asdf
 import numpy as onp
 import zodiax as zdx
-
 
 # %%
 
@@ -58,14 +58,16 @@ import collections
 import Aspheres
 
 
-def img_after_first_PIAA(model):
+def img_at_PIAA(model, after_piaa=True):
+    """Return the full-resolution intensity before or after the first PIAA pair."""
     prev_layers = model._update_tel().get("layers")  # ordered dict
     layers_kept = [
         "TransmissiveLayer",
         "BasisLayer",
         "Magnifier",
-        "PIAAset_0",
     ]
+    if after_piaa:
+        layers_kept.append("PIAAset_0")
 
     # prev_layers["PIAAset_0"] = prev_layers["PIAAset_0"].set(
     #     "piaa_lens_1.asphere_profile.coeffs", np.ones(8)
@@ -84,7 +86,7 @@ def img_after_first_PIAA(model):
     return subset_tel.model()
 
 
-plt.imshow(img_after_first_PIAA(m))
+plt.imshow(img_at_PIAA(m))
 
 
 # %%
@@ -94,7 +96,6 @@ plt.imshow(m.img())
 # %%
 
 import jax
-
 
 perturb_index = -1
 
@@ -244,7 +245,7 @@ for model_name in model_names:
     model = models[model_name]
 
     # After PIAA
-    axs[(model_name, "After PIAA")].imshow(np.sqrt(img_after_first_PIAA(model)))
+    axs[(model_name, "After PIAA")].imshow(np.sqrt(img_at_PIAA(model)))
     axs[(model_name, "After PIAA")].set_xticks([])
     axs[(model_name, "After PIAA")].set_yticks([])
 
@@ -323,5 +324,65 @@ for i, row_name in enumerate(row_names):
     axs[(model_names[0], row_name)].set_ylabel(row_labels[i], rotation=90, labelpad=5)
 
 plt.savefig(fig_savepth, bbox_inches="tight")
+
+# %%
+def radial_intensity_profile(intensity, diameter_over_D):
+    """Average intensity in one-pixel annuli, returning their radii in r/D."""
+    intensity = onp.asarray(intensity)
+    npixels = intensity.shape[0]
+    coords = onp.arange(npixels) - (npixels - 1) / 2
+    radius = onp.hypot(coords[:, None], coords[None, :])
+    bins = radius.astype(int)
+    n_bins = npixels // 2
+    # Use complete annuli only, excluding the corners of the square image.
+    valid = bins < n_bins
+    counts = onp.bincount(bins[valid], minlength=n_bins)
+    sums = onp.bincount(bins[valid], weights=intensity[valid], minlength=n_bins)
+    radii = (onp.arange(n_bins) + 0.5) * float(diameter_over_D) / npixels
+    return radii, sums / counts
+
+
+profile_fig, profile_ax = plt.subplots(figsize=(3.46457, 2.6), dpi=300)
+
+for i, model_name in enumerate(model_names):
+    model = models[model_name]
+    before_piaa = img_at_PIAA(model, after_piaa=False)
+    after_piaa = img_at_PIAA(model)
+    # Use the same pre-PIAA peak for both curves to preserve redistribution.
+    intensity_scale = float(onp.asarray(before_piaa).max())
+    pupil_diameter = dlwfs.aperture_name_to_pupil_diameter(model_name)
+    # Magnification scales the grid and pupil diameter equally, so cancels in r/D.
+    diameter_over_D = model.tel.optics.diameter / pupil_diameter
+    radii, before_profile = radial_intensity_profile(before_piaa, diameter_over_D)
+    _, after_profile = radial_intensity_profile(after_piaa, diameter_over_D)
+
+    profile_ax.plot(
+        radii,
+        before_profile / intensity_scale,
+        color=f"C{i}",
+        linestyle="--",
+    )
+    profile_ax.plot(
+        radii,
+        after_profile / intensity_scale,
+        color=f"C{i}",
+        linestyle="-",
+    )
+
+profile_ax.set_xlabel(r"$r/D$")
+profile_ax.set_ylabel(r"$\langle I\rangle_\theta / I_{\mathrm{before,max}}$")
+profile_ax.set_xlim(left=0)
+profile_ax.set_ylim(bottom=0)
+legend_handles = [
+    Line2D([], [], color=f"C{i}", label=title) for i, title in enumerate(col_titles)
+] + [
+    Line2D([], [], color="gray", linestyle="--", label="Before"),
+    Line2D([], [], color="gray", linestyle="-", label="After"),
+]
+profile_ax.legend(handles=legend_handles, ncol=2, fontsize=7, frameon=False)
+profile_fig.savefig(
+    os.path.join(os.path.dirname(fig_savepth), "different_apertures_radial_profiles.pdf"),
+    bbox_inches="tight",
+)
 
 # %%
