@@ -4,6 +4,28 @@ This repository contains the code used to simulate, optimize, and analyse a PIAA
 
 The project is intentionally small and script-driven: the main Python package lives in `piaa-zwfs-opt/`, while generated optimization outputs are written to `results/`.
 
+## Environment and saved models
+
+Install the locked environment from the repository root:
+
+```bash
+uv sync --locked
+```
+
+Restart any running Python/Jupyter kernel after syncing. Run figure scripts from
+`piaa-zwfs-opt/`, since their data paths are relative to that directory.
+
+dLux is pinned to commit `6bc86cbb29ad4ebf829a6b006e6e3fb72cad8b12` (0.15.0),
+the earlier local checkout compatible with the saved models and the
+`b01b6bb` ("checking crosstalk") dependency versions. The
+[uv Git source pin](https://docs.astral.sh/uv/concepts/projects/dependencies/#git)
+keeps updates to `~/Progs/repos/dLux` from changing this project's environment.
+
+The saved models contain a `BasisLayer.as_phase` leaf. dLux 0.16 replaces it with
+a static `effect` field, changing the PyTree layout used by Equinox to load the
+leaf stream. This can report a scalar-conversion error at a later leaf such as
+`asphere_profile.scale`. Use the pinned environment to load these models.
+
 ## Repository Structure
 
 ### Top level

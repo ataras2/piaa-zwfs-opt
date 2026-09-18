@@ -36,6 +36,7 @@ models = [
     "magellan_Fourier_basis_1_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag",
     "magellan_Fourier_basis_7_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag_neg_FI_trace_normed",
     "magellan_Fourier_basis_7_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag",
+    "magellan_Fourier_basis_7_terms_Z_band_no_optimization_1.06_loD_init_eval_diam",
 ]
 
 pupil_diameter = 6.5
@@ -52,6 +53,7 @@ models = {
 default_model_name = "Many freq. (FI opt.)"
 
 ideal_model = dlwfs.generate_idealwfs_optics(models[default_model_name])
+
 
 # %%
 plt.imshow(models[default_model_name].img())
@@ -89,7 +91,7 @@ standard_basis = dlwfs.orthonormalise_basis(
 standard_basis *= 1e-6
 
 # %%
-plt.figure(figsize=(3.33, 1.5), dpi=300)
+plt.figure(figsize=(3.33, 1.9), dpi=300)
 for i, (name, model) in enumerate(models.items()):
     FI = model.compute_standard_sensitivity(
         pupil_diameter=pupil_diameter,

@@ -9,7 +9,7 @@ dependencies = [
     "cmasher>=1.9.2",
     "cmocean>=4.0.3",
     "dill>=0.4.1",
-    "dlux==0.14.0",
+    "dlux==0.15.0",
     "equinox==0.13.2",
     "hcipy>=0.7.0",
     "interpax>=0.3.14",
@@ -23,4 +23,5 @@ dependencies = [
 
 [tool.uv.sources]
 pcs-cep = { path = "../../../../Progs/repos/pcs-cep" }
-dlux = { path = "../../../../Progs/repos/dLux" }
+# Preserve the PyTree layout used by the saved models and "checking crosstalk".
+dlux = { git = "https://github.com/LouisDesdoigts/dLux.git", rev = "6bc86cbb29ad4ebf829a6b006e6e3fb72cad8b12" }

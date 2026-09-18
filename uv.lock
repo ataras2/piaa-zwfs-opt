@@ -380,32 +380,13 @@ wheels = [
 
 [[package]]
 name = "dlux"
-version = "0.16.0"
-source = { directory = "../../../../Progs/repos/dLux" }
+version = "0.15.0"
+source = { git = "https://github.com/LouisDesdoigts/dLux.git?rev=6bc86cbb29ad4ebf829a6b006e6e3fb72cad8b12#6bc86cbb29ad4ebf829a6b006e6e3fb72cad8b12" }
 dependencies = [
     { name = "abcdlux" },
     { name = "interpax" },
     { name = "zodiax" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "abcdlux", specifier = ">=0.0.2" },
-    { name = "black", marker = "extra == 'dev'" },
-    { name = "interpax" },
-    { name = "mkdocstrings-python", marker = "extra == 'dev'" },
-    { name = "pre-commit", marker = "extra == 'dev'" },
-    { name = "pylint", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "pytest", marker = "extra == 'tests'" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "pytest-cov", marker = "extra == 'tests'" },
-    { name = "ruff", marker = "extra == 'dev'" },
-    { name = "selenium", marker = "extra == 'dev'" },
-    { name = "zensical", marker = "extra == 'dev'" },
-    { name = "zodiax", specifier = ">=0.5" },
-]
-provides-extras = ["tests", "dev"]
 
 [[package]]
 name = "equinox"
@@ -1404,7 +1385,7 @@ requires-dist = [
     { name = "cmasher", specifier = ">=1.9.2" },
     { name = "cmocean", specifier = ">=4.0.3" },
     { name = "dill", specifier = ">=0.4.1" },
-    { name = "dlux", directory = "../../../../Progs/repos/dLux" },
+    { name = "dlux", git = "https://github.com/LouisDesdoigts/dLux.git?rev=6bc86cbb29ad4ebf829a6b006e6e3fb72cad8b12" },
     { name = "equinox", specifier = "==0.13.2" },
     { name = "hcipy", specifier = ">=0.7.0" },
     { name = "interpax", specifier = ">=0.3.14" },
