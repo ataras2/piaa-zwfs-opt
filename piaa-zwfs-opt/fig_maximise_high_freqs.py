@@ -30,16 +30,18 @@ pth = os.path.join(
     "main_compare",
 )
 
+tscope = "gmt"
 
 models = [
-    "magellan_Fourier_basis_1_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag_neg_FI_trace_normed",
-    "magellan_Fourier_basis_1_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag",
-    "magellan_Fourier_basis_7_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag_neg_FI_trace_normed",
-    "magellan_Fourier_basis_7_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag",
-    "magellan_Fourier_basis_7_terms_Z_band_no_optimization_1.06_loD_init_eval_diam",
+    f"{tscope}_Fourier_basis_1_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag_neg_FI_trace_normed",
+    f"{tscope}_Fourier_basis_1_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag",
+    f"{tscope}_Fourier_basis_7_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag_neg_FI_trace_normed",
+    f"{tscope}_Fourier_basis_7_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag",
+    # "magellan_Fourier_basis_7_terms_Z_band_no_optimization_1.06_loD_init_eval_diam",
 ]
 
-pupil_diameter = 6.5
+# pupil_diameter = 6.5
+pupil_diameter = dlwfs.aperture_name_to_pupil_diameter("gmt")
 # %%
 
 models = {
@@ -47,7 +49,7 @@ models = {
     # "High freq, neg FI": dlwfs.load_model(os.path.join(pth, models[0]))[0],
     "Many freq. (FI opt.)": dlwfs.load_model(os.path.join(pth, models[2]))[0],
     "Many freq. (Cov. opt.)": dlwfs.load_model(os.path.join(pth, models[3]))[0],
-    "1.06 ZWFS": dlwfs.load_model(os.path.join(pth, models[4]))[0],
+    # "1.06 ZWFS": dlwfs.load_model(os.path.join(pth, models[4]))[0],
 }
 
 default_model_name = "Many freq. (FI opt.)"
@@ -166,34 +168,34 @@ plt.savefig(
 # %%
 
 
-standard_basis, _ = dlwfs.make_freq_basis(
-    wf_npixels=models[default_model_name].tel.wf_npixels,
-    sim_diam=models[default_model_name].tel.diameter,
-    pupil_diameter=6.5,
-    pupil=models[default_model_name].tel.TransmissiveLayer.transmission,
-    min_cycles=0.01,
-    max_cycles=8.0,
-    num_freqs=7,
-    trig_type="both",
-)
-standard_basis = np.concatenate(
-    [standard_basis[0][None, :, :], standard_basis[2:]],
-    axis=0,
-)
-standard_basis = dlwfs.orthonormalise_basis(
-    basis=standard_basis,
-    support=models[default_model_name].tel.TransmissiveLayer.transmission,
-)
+# standard_basis, _ = dlwfs.make_freq_basis(
+#     wf_npixels=models[default_model_name].tel.wf_npixels,
+#     sim_diam=models[default_model_name].tel.diameter,
+#     pupil_diameter=6.5,
+#     pupil=models[default_model_name].tel.TransmissiveLayer.transmission,
+#     min_cycles=0.01,
+#     max_cycles=8.0,
+#     num_freqs=7,
+#     trig_type="both",
+# )
+# standard_basis = np.concatenate(
+#     [standard_basis[0][None, :, :], standard_basis[2:]],
+#     axis=0,
+# )
+# standard_basis = dlwfs.orthonormalise_basis(
+#     basis=standard_basis,
+#     support=models[default_model_name].tel.TransmissiveLayer.transmission,
+# )
 
-for i, (name, model) in enumerate(models.items()):
-    plt.figure()
-    model_new_basis = model.update_model_basis(standard_basis)
+# for i, (name, model) in enumerate(models.items()):
+#     plt.figure()
+#     model_new_basis = model.update_model_basis(standard_basis)
 
-    FI = model_new_basis.compute_FI("phase_coefficients")
+#     FI = model_new_basis.compute_FI("phase_coefficients")
 
-    clims = np.abs(FI).max() * np.array([-1, 1])
+#     clims = np.abs(FI).max() * np.array([-1, 1])
 
-    plt.imshow(FI, vmin=clims[0], vmax=clims[1], cmap=cmr.prinsenvlag)
-    plt.colorbar()
+#     plt.imshow(FI, vmin=clims[0], vmax=clims[1], cmap=cmr.prinsenvlag)
+#     plt.colorbar()
 
 # %%

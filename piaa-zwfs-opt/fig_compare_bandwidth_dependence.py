@@ -139,6 +139,8 @@ for i, (name, model) in enumerate(models.items()):
         color = "C0"
         if "2.0" in name:
             pkwargs["linestyle"] = "--"
+        else:
+            pkwargs["linestyle"] = "-."
 
     pkwargs["color"] = color
 
@@ -152,7 +154,7 @@ for i, (name, model) in enumerate(models.items()):
         if "2.0" in name:
             plt.plot([], [], c="C0", label="2.0 ZWFS", linestyle="--")
         else:
-            plt.plot([], [], c="C0", label="1.06 ZWFS")
+            plt.plot([], [], c="C0", label="1.06 ZWFS", linestyle="-.")
 
     # just outside the plot on the right, at the yvalue of 0.2 bandwidth
     # text of the fraction suboptimality as a percentage
@@ -258,6 +260,8 @@ for i, (name, model) in enumerate(models.items()):
         color = "C0"
         if "2.0" in name:
             pkwargs["linestyle"] = "--"
+        else:
+            pkwargs["linestyle"] = "-."
 
     pkwargs["color"] = color
 
@@ -271,7 +275,7 @@ for i, (name, model) in enumerate(models.items()):
         if "2.0" in name:
             axs["loss"].plot([], [], c="C0", label="2.0 ZWFS", linestyle="--")
         else:
-            axs["loss"].plot([], [], c="C0", label="1.06 ZWFS")
+            axs["loss"].plot([], [], c="C0", label="1.06 ZWFS", linestyle="-.")
 
     # just outside the plot on the right, at the yvalue of 0.2 bandwidth
     # text of the fraction suboptimality as a percentage
@@ -395,7 +399,7 @@ for name, model in models.items():
     radii, thickness = phase_mask_profile(model, pupil_diameter)
     if "no_optimization" in name:
         color = "C0"
-        linestyle = "--" if "2.0" in name else "-"
+        linestyle = "--" if "2.0" in name else "-."
     else:
         opt_wavels = model.tel.source.wavelengths
         opt_frac_bandwidth = (opt_wavels.max() - opt_wavels.min()) / opt_wavels.mean()
@@ -406,10 +410,10 @@ for name, model in models.items():
 mask_legend = [
     Line2D([], [], color=colors["0.01"], label="Narrowband"),
     Line2D([], [], color=colors["0.20"], label="Broadband"),
-    Line2D([], [], color="C0", label="1.06 ZWFS"),
-    Line2D([], [], color="C0", linestyle="--", label="2.0 ZWFS"),
+    Line2D([], [], color="C0", linestyle="-.", label="1.06 ZWFS"),
     Line2D([], [], color="gray", label="PIAA"),
     Line2D([], [], color="gray", linestyle="--", label="No PIAA"),
+    Line2D([], [], color="C0", linestyle="--", label="2.0 ZWFS"),
 ]
 axs["mask"].set_xlabel(r"Radius [$\lambda/D$]")
 axs["mask"].set_ylabel(r"Mask thickness [$\mu$m]")

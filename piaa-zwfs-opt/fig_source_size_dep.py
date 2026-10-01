@@ -257,7 +257,7 @@ axs["losses"].plot(
     color="k",
 )
 axs["losses"].set_yscale("log")
-axs["losses"].set_xlabel(r"$D_{\star}$ [$\lambda/D$]")
+axs["losses"].set_xlabel("Stellar diameter" + r" $D_{\star}$ [$\lambda/D$]")
 # axs["losses"].set_ylabel("Average variance [/frame/ph/mode]")
 axs["losses"].set_ylabel("Loss [$\mu$m$^2$/ph.]")
 # legend with two columns (PIAA_ZWFS models in one column, others in another)
@@ -532,14 +532,14 @@ fig = plt.gcf()
 left_pos = axs["FI_mat_2.0_ZWFS"].get_position()
 right_pos = axs["FI_mat_resolve_opt_1p5"].get_position()
 row_center_x = (left_pos.x0 + right_pos.x1) / 2
-row_top_y = max(left_pos.y1, right_pos.y1)
+row_top_y = max(left_pos.y1, right_pos.y1)+3e-3
 fig.text(
     row_center_x,
     row_top_y,
     r"Fisher information matrices ($D_{\star} = 1.5 \lambda/D$)",
     ha="center",
     va="bottom",
-    fontsize=10,
+    fontsize=8,
 )
 
 

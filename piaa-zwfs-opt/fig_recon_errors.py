@@ -9,19 +9,19 @@ import dLux.utils as dlu
 
 import asdf
 import jax
-import jax.numpy as jnp
-import numpy as np
+import jax.numpy as np
+import numpy as onp
 
 plt.style.use(["science"])
 plt.rcParams.update({"font.size": 10})
 
 
 def rms_opd(opd, mask):
-    # return jnp.sqrt(jnp.mean((opd[mask]) ** 2))
-    # return jnp.sqrt(jnp.nanmean(jnp.where(mask, opd, jnp.nan)) ** 2)
-    masked_opd = jnp.where(mask, opd, 0)
-    n_valid = jnp.sum(mask)
-    return jnp.sqrt(jnp.sum(masked_opd**2) / n_valid)
+    # return np.sqrt(np.mean((opd[mask]) ** 2))
+    # return np.sqrt(np.nanmean(np.where(mask, opd, np.nan)) ** 2)
+    masked_opd = np.where(mask, opd, 0)
+    n_valid = np.sum(mask)
+    return np.sqrt(np.sum(masked_opd**2) / n_valid)
 
 
 # %%
@@ -32,6 +32,7 @@ PIAA_model = (
     "magellan_Fourier_basis_7_terms_Z_band_with_PIAA_annular_mask_point_source_0.0_mag"
 )
 exponent = -5 / 3
+# exponent = -11 / 3
 
 save_pth = os.path.join(
     "..",
@@ -39,10 +40,10 @@ save_pth = os.path.join(
     "dl_optimizations",
     "ablation_60",
     "recon_errors_asdf",
-    f"{n_terms_errors}_terms_" + PIAA_model + "_recon_errors.asdf",
-    # f"{n_terms_errors}_terms_"
-    # + PIAA_model
-    # + f"_recon_errors_{np.round(exponent, 2)}.asdf",
+    # f"{n_terms_errors}_terms_" + PIAA_model + "_recon_errors.asdf",
+    f"{n_terms_errors}_terms_"
+    + PIAA_model
+    + f"_recon_errors_{onp.round(exponent, 2)}.asdf",
 )
 # %%
 
@@ -133,7 +134,7 @@ axs["nonlinear"].set_ylim(axs["linear"].get_ylim())
 axs["nonlinear"].text(
     0.05,
     0.95,
-    "Non-linear Recon.",
+    "Nonlinear Recon.",
     transform=axs["nonlinear"].transAxes,
     **title_text_kwargs,
 )
@@ -172,8 +173,8 @@ plt.savefig(
 
 def compute_binned_stats(x, y, nbins=20):
     # x, y are 1D arrays (nm units). Returns centers, median, p16, p84.
-    x = np.asarray(x)
-    y = np.asarray(y)
+    x = onp.asarray(x)
+    y = onp.asarray(y)
 
     # Filter to positive x for log-binning
     pos = x > 0
@@ -181,30 +182,30 @@ def compute_binned_stats(x, y, nbins=20):
     y = y[pos]
 
     if x.size == 0:
-        return np.array([]), np.array([]), np.array([]), np.array([])
+        return onp.array([]), onp.array([]), onp.array([]), onp.array([])
 
-    xmin = np.nanmin(x)
-    xmax = np.nanmax(x)
+    xmin = onp.nanmin(x)
+    xmax = onp.nanmax(x)
     # Guard against degenerate range
     if xmin <= 0:
-        xmin = np.nanmin(x[x > 0])
+        xmin = onp.nanmin(x[x > 0])
     if xmax <= xmin:
         xmax = xmin * 1.01
 
-    bins = np.logspace(np.log10(xmin), np.log10(xmax), nbins + 1)
-    centers = np.sqrt(bins[:-1] * bins[1:])  # geometric mean for log bins
+    bins = onp.logspace(onp.log10(xmin), onp.log10(xmax), nbins + 1)
+    centers = onp.sqrt(bins[:-1] * bins[1:])  # geometric mean for log bins
 
-    med = np.full(nbins, np.nan)
-    p16 = np.full(nbins, np.nan)
-    p84 = np.full(nbins, np.nan)
+    med = onp.full(nbins, onp.nan)
+    p16 = onp.full(nbins, onp.nan)
+    p84 = onp.full(nbins, onp.nan)
 
     for i in range(nbins):
         m = (x >= bins[i]) & (x < bins[i + 1])
-        if np.any(m):
+        if onp.any(m):
             ym = y[m]
-            med[i] = np.nanmedian(ym)
-            p16[i] = np.nanpercentile(ym, 16)
-            p84[i] = np.nanpercentile(ym, 84)
+            med[i] = onp.nanmedian(ym)
+            p16[i] = onp.nanpercentile(ym, 16)
+            p84[i] = onp.nanpercentile(ym, 84)
 
     return centers, med, p16, p84
 
@@ -217,14 +218,14 @@ axs2 = {}
 axs2["linear"] = plt.subplot(gs1[0])
 axs2["nonlinear"] = plt.subplot(gs1[1])
 
-nbins = 30
+nbins = 25
 
 # Convert x once to nm
-x_nm = np.asarray(rms_ins) * 1e9
+x_nm = onp.asarray(rms_ins) * 1e9
 
 # Linear
 for name in sorted(recon_errors["linear"], key=lambda name: name != "ideal_model"):
-    y_nm = np.asarray(recon_errors["linear"][name]) * 1e9
+    y_nm = onp.asarray(recon_errors["linear"][name]) * 1e9
     centers, med, p16, p84 = compute_binned_stats(x_nm, y_nm, nbins=nbins)
     line = axs2["linear"].plot(
         centers,
@@ -262,9 +263,40 @@ axs2["linear"].text(
     ),
 )
 
+# Direction guide beneath the linear reconstruction title.
+# guide_origin = (0.08, 0.73)
+# for guide_tip in ((0.44, 0.73), (0.08, 0.43)):
+#     axs2["linear"].annotate(
+#         "",
+#         xy=guide_tip,
+#         xytext=guide_origin,
+#         xycoords="axes fraction",
+#         arrowprops=dict(arrowstyle="->", color="0.35", lw=0.8),
+#     )
+# axs2["linear"].text(
+#     0.26,
+#     0.76,
+#     "higher dynamic range",
+#     transform=axs2["linear"].transAxes,
+#     fontsize=7,
+#     color="0.35",
+#     ha="center",
+#     va="bottom",
+# )
+# axs2["linear"].text(
+#     0.11,
+#     0.57,
+#     "better\nreconstruction",
+#     transform=axs2["linear"].transAxes,
+#     fontsize=7,
+#     color="0.35",
+#     ha="left",
+#     va="center",
+# )
+
 # Non-linear
 for name in sorted(recon_errors["nonlinear"], key=lambda name: name != "ideal_model"):
-    y_nm = np.asarray(recon_errors["nonlinear"][name]) * 1e9
+    y_nm = onp.asarray(recon_errors["nonlinear"][name]) * 1e9
     centers, med, p16, p84 = compute_binned_stats(x_nm, y_nm, nbins=nbins)
     line = axs2["nonlinear"].plot(
         centers,
@@ -318,7 +350,7 @@ axs2["nonlinear"].set_ylim(axs2["linear"].get_ylim())
 axs2["nonlinear"].text(
     0.05,
     0.95,
-    "Non-linear Recon.",
+    "Nonlinear Recon.",
     transform=axs2["nonlinear"].transAxes,
     fontsize=10,
     verticalalignment="top",
@@ -348,7 +380,7 @@ fig2.text(
 
 # in the linear plot, put text just above y=x line indicating that it is y=x
 
-along_line_theta = 0.1  # interpolation parameter along the line
+along_line_theta = 0.2  # interpolation parameter along the line
 x_text = xlim2[0] * (xlim2[1] / xlim2[0]) ** along_line_theta
 y_text = xlim2[0] * (xlim2[1] / xlim2[0]) ** along_line_theta
 
@@ -370,10 +402,61 @@ axs2["linear"].text(
 
 
 plt.savefig(
-    "../results/figures/recon_errors_binned.pdf", bbox_inches="tight", transparent=True
+    f"../results/figures/recon_errors_binned_{onp.round(exponent, 2)}.pdf",
+    bbox_inches="tight",
+    transparent=True,
 )
 plt.savefig(
-    "../results/figures/recon_errors_binned.svg", bbox_inches="tight", transparent=True
+    f"../results/figures/recon_errors_binned_{onp.round(exponent, 2)}.svg",
+    bbox_inches="tight",
+    transparent=True,
 )
+
+# %%
+# Input OPD distribution for failed non-linear reconstructions.
+failure_threshold_nm = 3e-1
+failure_bins = onp.geomspace(x_nm.min(), x_nm.max(), nbins + 1)
+
+fig3, ax3 = plt.subplots(figsize=(3.4, 2.5), dpi=300)
+
+for name in sorted(recon_errors["nonlinear"], key=lambda name: name != "ideal_model"):
+    errors_nm = onp.asarray(recon_errors["nonlinear"][name]) * 1e9
+    failed = errors_nm > failure_threshold_nm
+    ax3.hist(
+        x_nm[failed],
+        bins=failure_bins,
+        histtype="step",
+        label=name_to_label.get(name, name),
+        lw=1.5,
+        alpha=0.7,
+        color="black" if name == "ideal_model" else None,
+    )
+
+total_counts, _ = onp.histogram(x_nm, bins=failure_bins)
+ax3.stairs(
+    total_counts,
+    failure_bins,
+    baseline=None,
+    color="gray",
+    lw=1.5,
+    label="Total samples",
+    zorder=3,
+)
+
+ax3.set_xscale("log")
+ax3.set_xlim(failure_bins[0], failure_bins[-1])
+ax3.set_ylim(bottom=0)
+ax3.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
+ax3.set_xlabel("Input OPD [nm RMS]")
+ax3.set_ylabel("Number of samples")
+ax3.set_title(rf"Nonlinear Recon.: error $> {failure_threshold_nm:g}$ nm", fontsize=9)
+ax3.legend(fontsize=8, frameon=True)
+
+for extension in ("pdf", "svg"):
+    fig3.savefig(
+        f"../results/figures/recon_errors_failed_hist_{onp.round(exponent, 2)}.{extension}",
+        bbox_inches="tight",
+        transparent=True,
+    )
 
 # %%
