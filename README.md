@@ -2,7 +2,7 @@
 
 This repository contains the code used to simulate, optimize, and analyse a PIAA-ZWFS based wavefront sensing system.
 
-The project is intentionally small and script-driven: the main Python package lives in `piaa-zwfs-opt/`, while generated optimization outputs are written to `results/`.
+The project is intentionally small and script-driven: the main Python package lives in `piaa-zwfs-opt/`, while generated optimization outputs are written to `results/`. Specific optimized models/results can be provided upon reasonable request. 
 
 ## Environment and saved models
 
@@ -59,11 +59,6 @@ The remaining `fig_*.py` files are analysis scripts used to reproduce individual
 - `fig_mag_changes.py`
 - `fig_maximise_high_freqs.py`
 - `fig_ablation_table.py`
-
-### Data and outputs
-
-- `results/dl_optimizations/` contains saved optimization runs.
-- Each run directory typically includes an `.asdf` file with the optimization state and a `.model` file with the saved core model.
 
 ## Notes
 

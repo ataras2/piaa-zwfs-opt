@@ -10,10 +10,13 @@ import argparse
 import jax.numpy as np
 import dlWFSoptimize as dlwfs
 import matplotlib.pyplot as plt
-import zodiax as zdx
-import numpy as onp
-import asdf
-import optimistix as optx
+from dl_optimization_common import (
+    add_basis_arguments,
+    basis_config_from_args,
+    optimization_folder_name,
+    optimize_model,
+    save_optimization,
+)
 
 # get the date for the save name
 from datetime import datetime
@@ -34,6 +37,10 @@ def parse_args():
         type=str,
         default=os.path.join("..", "results", "dl_optimizations"),
         help="Root folder to save results and model",
+    )
+    parser.add_argument(
+        "--save_path_file",
+        help="Write the completed run's model folder to this file for subsequent runs",
     )
 
     # Simulation parameters
@@ -66,18 +73,7 @@ def parse_args():
     parser.add_argument("--read_noise", type=float, default=0.5)
 
     # Aberration basis parameters
-    parser.add_argument(
-        "--basis_type",
-        type=str,
-        default="Fourier",
-        choices=["Fourier", "Zernike"],
-    )
-    parser.add_argument("--phase_rms", type=float, default=1e-6)
-    parser.add_argument("--amp_rms", type=float, default=None)
-    parser.add_argument("--n_terms", type=int, default=7)
-    parser.add_argument("--basis_min_cycles", type=float, default=1.0e-2)
-    parser.add_argument("--basis_max_cycles", type=float, default=8.0)
-    parser.add_argument("--basis_trig_type", type=str, default="both")
+    add_basis_arguments(parser)
 
     # Aperture parameters
     parser.add_argument("--oversample_aperture", type=int, default=4)
@@ -142,7 +138,6 @@ debug_plots = args.debug_plots
 save_pth = args.save_pth
 
 date_str = datetime.now().strftime("%Y%m%d_%H%M")
-save_fname = f"optimization_{date_str}.asdf"
 
 ##### Simulation parameters ##########
 target_wf_npixels = args.target_wf_npixels
@@ -183,11 +178,7 @@ basis_type = args.basis_type  # "Zernike" or "Fourier"
 phase_rms = args.phase_rms
 amp_rms = args.amp_rms  # 0.01  # 1%
 n_terms = args.n_terms
-basis_kwargs = {
-    "min_cycles": args.basis_min_cycles,
-    "max_cycles": args.basis_max_cycles,
-    "trig_type": args.basis_trig_type,
-}
+basis_kwargs = basis_config_from_args(args)["basis_kwargs"]
 
 ##### aperture parameters ##########
 oversample_aperture = args.oversample_aperture
@@ -226,22 +217,10 @@ else:
 
 # add some more information to the save path
 if optimize:
-    if np.isclose(source_diameter_loD, 0.0):
-        source_str = "point_source"
-    else:
-        source_str = f"resolved_source_{source_diameter_loD:.2f}_loD"
-
-    fname = f"{aperture_name}_{basis_type}_basis_{n_terms}_terms_{waveband_str}_band_{'with' if has_PIAA else 'no'}_PIAA_{phase_mask_basis_name}_mask_{source_str}"
-
-    if magnitude is not None:
-        fname += f"_{magnitude}_mag"
-
-    if read_noise > 0.5:
-        fname += f"_{read_noise:.1f}e_readnoise"
-
-    if loss_type != "cov_trace_normed":
-        fname += f"_{loss_type}"
-
+    fname = optimization_folder_name(
+        aperture_name, basis_type, n_terms, waveband_str, has_PIAA,
+        phase_mask_basis_name, source_diameter_loD, magnitude, read_noise, loss_type,
+    )
     save_pth = os.path.join(
         save_pth,
         fname,
@@ -320,51 +299,9 @@ if debug_plots:
 
 # %%
 if optimize:
-    atol = args.atol
-    rtol = args.rtol
-
-    solver = optx.LBFGS(
-        rtol=rtol,
-        atol=atol,
-        # verbose=frozenset({"step", "accepted", "loss", "step_size"}),
-        verbose=True,
-        norm=optx.rms_norm,
-    )
-
-    # parameters = [
-    #     # "params.piaa1_coeffs",
-    #     # "params.piaa2_coeffs",
-    #     # "params.piaa1_f_rho_max",
-    #     # "params.piaa2_f_rho_max",
-    #     # "params.phase_mask_coeffs",
-    #     "params.phase_mask_thickness",
-    #     "params.phase_mask_diameter",
-    # ]
-    parameters = []
-
-    if has_PIAA:
-        parameters += [
-            "params.piaa1_coeffs",
-            "params.piaa2_coeffs",
-            "params.piaa1_f_rho_max",
-            "params.piaa2_f_rho_max",
-        ]
-    if phase_mask_basis_name == "annular":
-        parameters += [
-            "params.phase_mask_coeffs",
-        ]
-    elif phase_mask_basis_name == "circle":
-        parameters += [
-            "params.phase_mask_thickness",
-            "params.phase_mask_diameter",
-        ]
-
-    core_model, res = dlwfs.optx_minimize(
-        core_model,
-        parameters,
-        solver,
-        loss_type,
-        max_steps=5000,
+    core_model, res = optimize_model(
+        core_model, has_PIAA, phase_mask_basis_name, loss_type,
+        args.atol, args.rtol, n_iter,
     )
 
 
@@ -405,6 +342,10 @@ config_tree = {
         "q": q,
         "n_wavels": n_wavels,
         "waveband": waveband,
+        "central_wavel": central_wavel,
+        "bandwidth": bandwidth,
+        "Nph_per_sec": Nph_per_sec,
+        "source_diameter_loD": source_diameter_loD,
         "magnitude": magnitude,
         "exposure_time": exposure_time,
         "system_throughput": system_throughput,
@@ -441,61 +382,15 @@ if optimize:
         "optimize": optimize,
         "loss_type": loss_type,
         "n_iter": n_iter,
+        "atol": args.atol,
+        "rtol": args.rtol,
     }
 
 
-# Helper to convert JAX arrays to numpy for ASDF
-def to_cpu_numpy(obj):
-    if hasattr(obj, "device_buffer") or hasattr(obj, "sharding"):  # JAX array
-        return onp.array(obj)
-    elif isinstance(obj, dict):
-        return {k: to_cpu_numpy(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [to_cpu_numpy(v) for v in obj]
-    return obj
-
-
-# Also save the results
-results_tree = {
-    "final_params": core_model.params,
-    "FI": core_model.compute_FI("phase_coefficients"),
-    "loss": core_model.loss(loss_type=loss_type),
-}
-
-# Combine into one tree and convert to numpy
-tree = {"config": config_tree, "results": results_tree}
-tree = to_cpu_numpy(tree)
-
-# Save to ASDF file
-if not os.path.exists(save_pth):
-    os.makedirs(save_pth)
-
-filename = os.path.join(save_pth, save_fname)
-with asdf.AsdfFile(tree) as af:
-    af.write_to(filename)
-    print(f"Saved configuration and results to {filename}")
-
-# also save the model file using zdx.experimental.serialise
-
-import serialisation
-
-serialisation.serialise(
-    os.path.join(save_pth, f"core_model_{date_str}.model"),
-    core_model,
-)
-
-# import pickle
-
-# with open(os.path.join(save_pth, f"core_model_{date_str}.pkl"), "wb") as f:
-#     pickle.dump(core_model, f)
-
-# import dill
-
-# with open(os.path.join(save_pth, f"core_model_{date_str}.dill"), "wb") as f:
-#     dill.dump(core_model, f)
-
-
-print("Saved core model.")
+save_optimization(core_model, config_tree, save_pth, loss_type, date_str)
+if args.save_path_file is not None:
+    with open(args.save_path_file, "w") as path_file:
+        path_file.write(os.path.abspath(save_pth) + "\n")
 # %%
 
 # %%
